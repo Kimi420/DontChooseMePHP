@@ -12,19 +12,4 @@ RewriteCond %{REQUEST_FILENAME} !-f
 RewriteCond %{REQUEST_FILENAME} !-d
 RewriteRule ^api/(.*)$ index.php [L]
 
-# Zugriff auf Konfigurationsdateien verbieten
-<Files "config.php">
-    Order allow,deny
-    Deny from all
-</Files>
 
-<Files "database.php">
-    Order allow,deny
-    Deny from all
-</Files>
-
-# PHP-Dateien nur über bestimmte Endpunkte erlauben
-<FilesMatch "^(?!(Lobby|Game_api)\.php$).*\.php$">
-    Order allow,deny
-    Deny from all
-</FilesMatch>
