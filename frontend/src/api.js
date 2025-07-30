@@ -48,7 +48,10 @@ export async function createGame(playerName) {
   try {
     const res = await fetch(`${API_URL}/Lobby.php`, {
       method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
+      headers: {
+        'Content-Type': 'application/json'
+      },
+      mode: 'cors',
       body: JSON.stringify({ playerName })
     });
     return parseJSONResponse(res);
@@ -62,7 +65,10 @@ export async function joinGame(gameId, playerName) {
   try {
     const res = await fetch(`${API_URL}/Lobby.php`, {
       method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
+      headers: {
+        'Content-Type': 'application/json'
+      },
+      mode: 'cors',
       body: JSON.stringify({ gameId, playerName })
     });
     return parseJSONResponse(res);
