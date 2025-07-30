@@ -4,7 +4,12 @@
     <option name="autoReloadType" value="SELECTIVE" />
   </component>
   <component name="ChangeListManager">
-    <list default="true" id="395b49ea-6b7a-4ce0-8b7a-26e97a14a4e0" name="Changes" comment="" />
+    <list default="true" id="395b49ea-6b7a-4ce0-8b7a-26e97a14a4e0" name="Changes" comment="">
+      <change afterPath="$PROJECT_DIR$/README_DEPLOY.md" afterDir="false" />
+      <change afterPath="$PROJECT_DIR$/backend/.htaccess" afterDir="false" />
+      <change afterPath="$PROJECT_DIR$/frontend/.htaccess" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/frontend/DontPickMe/.idea/workspace.xml" beforeDir="false" afterPath="$PROJECT_DIR$/frontend/DontPickMe/.idea/workspace.xml" afterDir="false" />
+    </list>
     <option name="SHOW_DIALOG" value="false" />
     <option name="HIGHLIGHT_CONFLICTS" value="true" />
     <option name="HIGHLIGHT_NON_ACTIVE_CHANGELIST" value="false" />
@@ -24,6 +29,18 @@
   <component name="Git.Settings">
     <option name="RECENT_GIT_ROOT_PATH" value="$PROJECT_DIR$" />
   </component>
+  <component name="GitHubPullRequestSearchHistory"><![CDATA[{
+  "lastFilter": {
+    "state": "OPEN",
+    "assignee": "Kimi420"
+  }
+}]]></component>
+  <component name="GithubPullRequestsUISettings"><![CDATA[{
+  "selectedUrlAndAccountId": {
+    "url": "https://github.com/Kimi420/DontChooseMePHP.git",
+    "accountId": "0c54da66-099a-4507-b030-f9eb6eb39281"
+  }
+}]]></component>
   <component name="PhpWorkspaceProjectConfiguration" interpreter_name="$PROJECT_DIR$/../../../../php/php.exe" />
   <component name="ProjectColorInfo">{
   &quot;associatedIndex&quot;: 0
@@ -69,7 +86,7 @@
       <option name="presentableId" value="Default" />
       <updated>1753871403329</updated>
       <workItem from="1753871404189" duration="676000" />
-      <workItem from="1753872105222" duration="6722000" />
+      <workItem from="1753872105222" duration="7507000" />
     </task>
     <servers />
   </component>

@@ -1,0 +1,10 @@
+# CORS und PHP-API für Backend
+<IfModule mod_headers.c>
+    Header set Access-Control-Allow-Origin "*"
+    Header set Access-Control-Allow-Methods "GET,POST,OPTIONS"
+    Header set Access-Control-Allow-Headers "Content-Type"
+</IfModule>
+
+# PHP-Dateien direkt ausführen
+AddType application/json .php
+

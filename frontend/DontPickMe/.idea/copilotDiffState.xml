@@ -83,6 +83,14 @@
             </PendingDiffInfo>
           </value>
         </entry>
+        <entry key="$PROJECT_DIR$/README_DEPLOY.md">
+          <value>
+            <PendingDiffInfo>
+              <option name="filePath" value="$PROJECT_DIR$/README_DEPLOY.md" />
+              <option name="updatedContent" value="# Deployment-Anleitung für Don't Pick Me&#10;&#10;## Voraussetzungen&#10;- Webhosting mit PHP-Unterstützung (z.B. Netcup)&#10;- Möglichkeit, eigene Dateien hochzuladen (FTP, Web-FTP, SSH)&#10;- Optional: Node.js für das Bauen des React-Frontends&#10;&#10;## Schritt 1: Backend hochladen&#10;1. Lade den gesamten `backend`-Ordner auf deinen Server (z.B. in `public_html/backend`).&#10;2. Stelle sicher, dass die Datei `GameController.php` und die anderen PHP-Dateien vorhanden sind.&#10;3. Die Datei `.htaccess` im backend-Ordner sorgt für CORS und API-Zugriff.&#10;&#10;## Schritt 2: Frontend hochladen&#10;1. Lade den gesamten `frontend`-Ordner auf deinen Server (z.B. in `public_html/frontend`).&#10;2. Die Datei `.htaccess` im frontend-Ordner sorgt für korrektes Routing der React-App.&#10;3. Die Sounds müssen im Ordner `frontend/sounds` liegen.&#10;&#10;## Schritt 3: API-URL konfigurieren&#10;1. Öffne die Datei `frontend/config.json` und trage die korrekte URL zu deinem Backend ein, z.B.:&#10;   ```json&#10;   { &quot;API_URL&quot;: &quot;https://deinedomain.de/backend&quot; }&#10;   ```&#10;&#10;## Schritt 4: React-Frontend bauen (optional)&#10;Falls du das Frontend lokal bauen möchtest:&#10;1. Navigiere in den `frontend`-Ordner.&#10;2. Führe `npm install` und dann `npm run build` aus.&#10;3. Lade den Inhalt des `build`-Ordners auf den Server.&#10;&#10;## Schritt 5: Domain und Dokumentstamm&#10;- Setze den Dokumentstamm deiner Domain auf `public_html` oder den Ordner, in dem `frontend` und `backend` liegen.&#10;- Prüfe, ob du über `https://deinedomain.de/frontend` und `https://deinedomain.de/backend/GameController.php` zugreifen kannst.&#10;&#10;## Schritt 6: Testen&#10;- Öffne die Seite im Browser und teste die wichtigsten Funktionen (Lobby, Spielstart, Karten, Sounds).&#10;- Prüfe die Kommunikation zwischen Frontend und Backend.&#10;&#10;---&#10;&#10;**Hinweis:**&#10;- Bei Problemen mit CORS, Routing oder PHP-Rechten prüfe die .htaccess und Server-Einstellungen.&#10;- Für weitere Fragen oder Anpassungen kannst du dich jederzeit melden!&#10;" />
+            </PendingDiffInfo>
+          </value>
+        </entry>
         <entry key="$PROJECT_DIR$/ScoringPhase.php">
           <value>
             <PendingDiffInfo>
@@ -104,6 +112,14 @@
             <PendingDiffInfo>
               <option name="filePath" value="$PROJECT_DIR$/VotingPhase.php" />
               <option name="updatedContent" value="&lt;?php&#10;&#10;require_once 'Player.php';&#10;require_once 'Card.php';&#10;&#10;/**&#10; * VotingPhase-Klasse für die Dixit-Abstimmungsphase&#10; */&#10;class VotingPhase {&#10;    /** @var array&lt;int, int&gt; */&#10;    private array $votes = [];&#10;&#10;    /**&#10;     * Spieler stimmt für eine Karte ab&#10;     */&#10;    public function vote(Player $player, int $cardId): void {&#10;        $this-&gt;votes[$player-&gt;id] = $cardId;&#10;    }&#10;&#10;    /**&#10;     * Gibt alle Stimmen zurück&#10;     */&#10;    public function getVotes(): array {&#10;        return $this-&gt;votes;&#10;    }&#10;}&#10;" />
+            </PendingDiffInfo>
+          </value>
+        </entry>
+        <entry key="$PROJECT_DIR$/backend/.htaccess">
+          <value>
+            <PendingDiffInfo>
+              <option name="filePath" value="$PROJECT_DIR$/backend/.htaccess" />
+              <option name="updatedContent" value="# CORS und PHP-API für Backend&#10;&lt;IfModule mod_headers.c&gt;&#10;    Header set Access-Control-Allow-Origin &quot;*&quot;&#10;    Header set Access-Control-Allow-Methods &quot;GET,POST,OPTIONS&quot;&#10;    Header set Access-Control-Allow-Headers &quot;Content-Type&quot;&#10;&lt;/IfModule&gt;&#10;&#10;# PHP-Dateien direkt ausführen&#10;AddType application/json .php&#10;" />
             </PendingDiffInfo>
           </value>
         </entry>
@@ -130,6 +146,14 @@
               <option name="filePath" value="$PROJECT_DIR$/backend/Player.php" />
               <option name="originalContent" value="&lt;?php&#10;&#10;require_once 'Card.php';&#10;&#10;/**&#10; * Player-Klasse für einen Dixit-Spieler&#10; */&#10;class Player {&#10;    public int $id;&#10;    public string $name;&#10;    public int $score;&#10;    /** @var Card[] */&#10;    public array $hand;&#10;    public bool $isActive;&#10;    public bool $isStoryteller;&#10;&#10;    public function __construct(&#10;        int $id,&#10;        string $name,&#10;        int $score = 0,&#10;        array $hand = [],&#10;        bool $isActive = false,&#10;        bool $isStoryteller = false&#10;    ) {&#10;        $this-&gt;id = $id;&#10;        $this-&gt;name = $name;&#10;        $this-&gt;score = $score;&#10;        $this-&gt;hand = $hand;&#10;        $this-&gt;isActive = $isActive;&#10;        $this-&gt;isStoryteller = $isStoryteller;&#10;    }&#10;}&#10;&#10;" />
               <option name="updatedContent" value="&lt;?php&#10;&#10;require_once 'Card.php';&#10;&#10;/**&#10; * Player-Klasse für einen Dixit-Spieler&#10; */&#10;class Player {&#10;    public int $id;&#10;    public string $name;&#10;    public int $score;&#10;    /** @var Card[] */&#10;    public array $hand;&#10;    public bool $isActive;&#10;    public bool $isStoryteller;&#10;    public bool $hasSelectedCard;&#10;&#10;    public function __construct(&#10;        int $id,&#10;        string $name,&#10;        int $score = 0,&#10;        array $hand = [],&#10;        bool $isActive = false,&#10;        bool $isStoryteller = false,&#10;        bool $hasSelectedCard = false&#10;    ) {&#10;        $this-&gt;id = $id;&#10;        $this-&gt;name = $name;&#10;        $this-&gt;score = $score;&#10;        $this-&gt;hand = $hand;&#10;        $this-&gt;isActive = $isActive;&#10;        $this-&gt;isStoryteller = $isStoryteller;&#10;        $this-&gt;hasSelectedCard = $hasSelectedCard;&#10;    }&#10;}" />
+            </PendingDiffInfo>
+          </value>
+        </entry>
+        <entry key="$PROJECT_DIR$/frontend/.htaccess">
+          <value>
+            <PendingDiffInfo>
+              <option name="filePath" value="$PROJECT_DIR$/frontend/.htaccess" />
+              <option name="updatedContent" value="# React SPA Routing&#10;RewriteEngine On&#10;RewriteBase /frontend/&#10;RewriteCond %{REQUEST_FILENAME} !-f&#10;RewriteCond %{REQUEST_FILENAME} !-d&#10;RewriteRule ^ index.html [L]&#10;" />
             </PendingDiffInfo>
           </value>
         </entry>
