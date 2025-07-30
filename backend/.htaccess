@@ -11,11 +11,7 @@ php_flag log_errors on
 
 RewriteEngine On
 
-# OPTIONS-Preflight-Anfragen direkt beantworten
-RewriteCond %{REQUEST_METHOD} OPTIONS
-RewriteRule ^.*$ - [R=200,L]
-
-# API-Endpunkte umleiten, aber nur wenn keine Datei/Verzeichnis existiert
+# Nur API-Endpunkte umleiten, aber nur wenn keine Datei/Verzeichnis existiert
 RewriteCond %{REQUEST_FILENAME} !-f
 RewriteCond %{REQUEST_FILENAME} !-d
 RewriteRule ^api/$ index.php [L]
