@@ -8,8 +8,10 @@
 # Keine unnötigen Typen setzen, PHP bleibt PHP
 RewriteEngine On
 
-# Wenn eine OPTIONS-Anfrage reinkommt, direkt 200 zurückgeben
+# OPTIONS-Anfragen nur abfangen, wenn keine Datei/Verzeichnis existiert
 RewriteCond %{REQUEST_METHOD} OPTIONS
+RewriteCond %{REQUEST_FILENAME} !-f
+RewriteCond %{REQUEST_FILENAME} !-d
 RewriteRule ^ - [R=200,L]
 
 # API-Endpunkte umleiten
