@@ -2,7 +2,7 @@
 
 class Database {
     private static ?PDO $connection = null;
-
+    
     public static function getConnection(): PDO {
         if (self::$connection === null) {
             // Konfiguration außerhalb des Web-Verzeichnisses laden
@@ -15,7 +15,7 @@ class Database {
             $config = require_once $configPath;
 
             $dsn = "mysql:host={$config['DB_HOST']};dbname={$config['DB_NAME']};charset={$config['DB_CHARSET']}";
-
+            
             try {
                 self::$connection = new PDO(
                     $dsn,
@@ -27,22 +27,22 @@ class Database {
                         PDO::ATTR_EMULATE_PREPARES => false
                     ]
                 );
-
+                
                 // Tabellen erstellen falls sie nicht existieren
                 self::createTables();
-
+                
             } catch (PDOException $e) {
                 error_log("Datenbankverbindung fehlgeschlagen: " . $e->getMessage());
                 throw new Exception("Datenbankverbindung fehlgeschlagen");
             }
         }
-
+        
         return self::$connection;
     }
-
+    
     private static function createTables(): void {
         $pdo = self::$connection;
-
+        
         // Games Tabelle
         $pdo->exec("CREATE TABLE IF NOT EXISTS games (
             id VARCHAR(10) PRIMARY KEY,
@@ -50,7 +50,7 @@ class Database {
             created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
             updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP
         )");
-
+        
         // Players Tabelle
         $pdo->exec("CREATE TABLE IF NOT EXISTS players (
             id INT AUTO_INCREMENT PRIMARY KEY,
