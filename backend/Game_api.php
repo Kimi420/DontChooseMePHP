@@ -1,4 +1,11 @@
 <?php
+// Error-Ausgaben unterdrücken für sauberes JSON
+error_reporting(0);
+ini_set('display_errors', 0);
+
+// Output-Buffering starten
+ob_start();
+
 header('Content-Type: application/json');
 
 // CORS-Header
@@ -28,6 +35,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'GET') {
     $playerName = isset($_GET['playerName']) ? $_GET['playerName'] : null;
 
     $result = $gameManager->getGameState($gameId, $playerName);
+    ob_clean();
     echo json_encode($result);
     exit;
 }
@@ -85,11 +93,12 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             $result = ['success' => false, 'message' => 'Unbekannte Aktion'];
     }
 
+    ob_clean();
     echo json_encode($result);
     exit;
 }
 
 // Andere HTTP-Methoden
+ob_clean();
 echo json_encode(['success' => false, 'message' => 'Methode nicht unterstützt']);
 ?>
-

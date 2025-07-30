@@ -1,4 +1,11 @@
 <?php
+// Error-Ausgaben unterdrücken für sauberes JSON
+error_reporting(0);
+ini_set('display_errors', 0);
+
+// Output-Buffering starten um ungewollte Ausgaben zu vermeiden
+ob_start();
+
 // CORS-Header für alle Anfragen setzen
 header('Access-Control-Allow-Origin: *');
 header('Access-Control-Allow-Methods: POST, GET, OPTIONS');
@@ -23,10 +30,6 @@ if ($_SERVER['REQUEST_METHOD'] === 'OPTIONS') {
     http_response_code(200);
     exit();
 }
-
-// Error Reporting für Debugging
-error_reporting(E_ALL);
-ini_set('display_errors', 1);
 
 try {
     // Prüfen ob Dateien existieren
@@ -79,19 +82,25 @@ try {
             $result = $gameManager->createGame($playerName);
         }
 
+        // Output-Buffer leeren vor JSON-Ausgabe
+        ob_clean();
         echo json_encode($result);
     } else {
+        ob_clean();
         echo json_encode(['success' => false, 'message' => 'Nur POST-Anfragen unterstützt']);
     }
 
 } catch (Error $e) {
     error_log('PHP Error in Lobby.php: ' . $e->getMessage());
+    ob_clean();
     echo json_encode(['success' => false, 'message' => 'PHP-Fehler: ' . $e->getMessage()]);
 } catch (Exception $e) {
     error_log('Exception in Lobby.php: ' . $e->getMessage());
+    ob_clean();
     echo json_encode(['success' => false, 'message' => 'Server-Fehler: ' . $e->getMessage()]);
 } catch (Throwable $e) {
     error_log('Throwable in Lobby.php: ' . $e->getMessage());
+    ob_clean();
     echo json_encode(['success' => false, 'message' => 'Unerwarteter Fehler: ' . $e->getMessage()]);
 }
 ?>

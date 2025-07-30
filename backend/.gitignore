@@ -1,8 +1,6 @@
 # Konfigurationsdateien
 config.php
 .env
-database.php
-../config/
 
 # Log-Dateien
 *.log
@@ -10,6 +8,4 @@ database.php
 # Temporäre Dateien
 *.tmp
 
-# Backup-Dateien
-*.bak
-*~
+

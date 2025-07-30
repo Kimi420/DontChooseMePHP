@@ -22,6 +22,7 @@ class Player {
     public bool $isActive;
     public bool $isStoryteller;
     public bool $hasSelectedCard;
+    public array $cards = []; // Fehlende Property hinzugefügt
 
     public function __construct(
         int $id,
@@ -39,5 +40,25 @@ class Player {
         $this->isActive = $isActive;
         $this->isStoryteller = $isStoryteller;
         $this->hasSelectedCard = $hasSelectedCard;
+        $this->cards = []; // Initialisierung der cards-Array
+    }
+
+    public function addCard($card): void {
+        $this->cards[] = $card;
+    }
+
+    public function removeCard($cardId): bool {
+        foreach ($this->cards as $key => $card) {
+            if ($card->id === $cardId || $card['id'] === $cardId) {
+                unset($this->cards[$key]);
+                $this->cards = array_values($this->cards); // Array-Indizes neu ordnen
+                return true;
+            }
+        }
+        return false;
+    }
+
+    public function getCards(): array {
+        return $this->cards;
     }
 }
