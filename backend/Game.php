@@ -47,19 +47,32 @@ class Game {
         return $player;
     }
 
-    public function getState(): array {
+    public function getState(string $playerName = null): array {
+        // Spieler-Array für JSON-Serialisierung vorbereiten
+        $playersArray = [];
+        foreach ($this->players as $player) {
+            $playersArray[] = [
+                'id' => $player->id,
+                'name' => $player->name,
+                'score' => $player->score ?? 0,
+                'isStoryteller' => $player->isStoryteller ?? false,
+                'hasSelectedCard' => $player->hasSelectedCard ?? false,
+                'cards' => $player->cards ?? []
+            ];
+        }
+
         return [
             'gameId' => $this->gameId,
-            'players' => $this->players,
-            'storytellerIndex' => $this->storytellerIndex,
-            'phase' => $this->phase,
-            'selectedCards' => $this->selectedCards,
-            'votes' => $this->votes,
+            'players' => $playersArray, // Sicherstellen, dass es ein Array ist
+            'storytellerIndex' => $this->storytellerIndex ?? 0,
+            'phase' => $this->phase ?? 'waiting',
+            'selectedCards' => $this->selectedCards ?? [],
+            'votes' => $this->votes ?? [],
             'hint' => $this->hint,
             'storytellerCard' => $this->storytellerCard,
             'winner' => $this->winner,
-            'mixedCards' => $this->mixedCards,
-            'state' => $this->state
+            'mixedCards' => $this->mixedCards ?? [],
+            'state' => $this->state ?? 'waiting'
         ];
     }
 

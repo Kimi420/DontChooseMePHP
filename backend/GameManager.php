@@ -121,11 +121,25 @@ class GameManager {
      */
     public function getGameState(string $gameId, string $playerName = null): array {
         if (!isset($this->games[$gameId])) {
-            return ['success' => false, 'message' => 'Spiel nicht gefunden'];
+            return [
+                'success' => false,
+                'message' => 'Spiel nicht gefunden',
+                'players' => [], // Fallback für Frontend
+                'gameId' => $gameId,
+                'phase' => 'waiting',
+                'state' => 'waiting'
+            ];
         }
 
         $game = $this->games[$gameId];
-        return array_merge(['success' => true], $game->getState($playerName));
+        $gameState = $game->getState($playerName);
+
+        // Sicherstellen, dass players immer ein Array ist
+        if (!isset($gameState['players']) || !is_array($gameState['players'])) {
+            $gameState['players'] = [];
+        }
+
+        return array_merge(['success' => true], $gameState);
     }
 
     /**

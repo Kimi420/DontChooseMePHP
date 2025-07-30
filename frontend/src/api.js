@@ -13,9 +13,23 @@ async function parseJSONResponse(response) {
         try {
           const text = await response.text();
           console.error('Server-Fehler (500):', text);
-          return { success: false, message: `Server-Fehler: ${text}` };
+          return {
+            success: false,
+            message: `Server-Fehler: ${text}`,
+            players: [], // Fallback für Frontend
+            gameId: '',
+            phase: 'waiting',
+            state: 'waiting'
+          };
         } catch {
-          return { success: false, message: 'Server-Fehler (500): Keine Details verfügbar' };
+          return {
+            success: false,
+            message: 'Server-Fehler (500): Keine Details verfügbar',
+            players: [],
+            gameId: '',
+            phase: 'waiting',
+            state: 'waiting'
+          };
         }
       }
       throw new Error(`HTTP error! Status: ${response.status}`);
@@ -27,20 +41,72 @@ async function parseJSONResponse(response) {
     // Wenn der Text leer ist, geben wir ein leeres Objekt zurück
     if (!text || text.trim() === '') {
       console.warn('Leere Antwort vom Server erhalten');
-      return { success: false, message: 'Leere Antwort vom Server' };
+      return {
+        success: false,
+        message: 'Leere Antwort vom Server',
+        players: [],
+        gameId: '',
+        phase: 'waiting',
+        state: 'waiting'
+      };
     }
 
     // Versuchen, den Text als JSON zu parsen
     try {
-      return JSON.parse(text);
+      const parsed = JSON.parse(text);
+
+      // Sicherstellen, dass kritische Felder vorhanden sind
+      if (parsed && typeof parsed === 'object') {
+        parsed.players = parsed.players || [];
+        parsed.gameId = parsed.gameId || '';
+        parsed.phase = parsed.phase || 'waiting';
+        parsed.state = parsed.state || 'waiting';
+      }
+
+      return parsed;
     } catch (jsonError) {
       console.error('JSON-Parsing-Fehler:', jsonError);
       console.error('Erhaltener Text:', text);
-      throw new Error('Ungültiges JSON vom Server erhalten');
+
+      // Versuche PHP-Error-Nachrichten zu extrahieren
+      if (text.includes('<br />') && text.includes('{')) {
+        const jsonStart = text.lastIndexOf('{');
+        const jsonEnd = text.lastIndexOf('}') + 1;
+        if (jsonStart !== -1 && jsonEnd > jsonStart) {
+          try {
+            const cleanJson = text.substring(jsonStart, jsonEnd);
+            const parsed = JSON.parse(cleanJson);
+            parsed.players = parsed.players || [];
+            parsed.gameId = parsed.gameId || '';
+            parsed.phase = parsed.phase || 'waiting';
+            parsed.state = parsed.state || 'waiting';
+            console.warn('JSON aus gemischter Antwort extrahiert:', parsed);
+            return parsed;
+          } catch {
+            // Fallback bleibt unten
+          }
+        }
+      }
+
+      return {
+        success: false,
+        message: 'Ungültiges JSON vom Server erhalten',
+        players: [],
+        gameId: '',
+        phase: 'waiting',
+        state: 'waiting'
+      };
     }
   } catch (error) {
     console.error('API-Anfragefehler:', error);
-    return { success: false, message: `API-Fehler: ${error.message}` };
+    return {
+      success: false,
+      message: `API-Fehler: ${error.message}`,
+      players: [],
+      gameId: '',
+      phase: 'waiting',
+      state: 'waiting'
+    };
   }
 }
 
