@@ -46,7 +46,7 @@ async function parseJSONResponse(response) {
 
 export async function createGame(playerName) {
   try {
-    const res = await fetch(`${API_URL}/Lobby.php`, {
+    const res = await fetch(`${API_URL}/backend/Lobby.php`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ playerName })
