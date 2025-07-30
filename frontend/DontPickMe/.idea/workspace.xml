@@ -4,13 +4,8 @@
     <option name="autoReloadType" value="SELECTIVE" />
   </component>
   <component name="ChangeListManager">
-    <list default="true" id="395b49ea-6b7a-4ce0-8b7a-26e97a14a4e0" name="Changes" comment="Fix Buttons Lobby">
-      <change beforePath="$PROJECT_DIR$/frontend/build/asset-manifest.json" beforeDir="false" afterPath="$PROJECT_DIR$/frontend/build/asset-manifest.json" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/frontend/build/index.html" beforeDir="false" afterPath="$PROJECT_DIR$/frontend/build/index.html" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/frontend/build/static/css/main.31d6cfe0.css" beforeDir="false" />
-      <change beforePath="$PROJECT_DIR$/frontend/build/static/js/main.acb6a623.js" beforeDir="false" />
-      <change beforePath="$PROJECT_DIR$/frontend/build/static/js/main.acb6a623.js.LICENSE.txt" beforeDir="false" />
-      <change beforePath="$PROJECT_DIR$/frontend/build/static/js/main.acb6a623.js.map" beforeDir="false" />
+    <list default="true" id="395b49ea-6b7a-4ce0-8b7a-26e97a14a4e0" name="Changes" comment="Fix Buttons Lobby + build">
+      <change beforePath="$PROJECT_DIR$/frontend/DontPickMe/.idea/workspace.xml" beforeDir="false" afterPath="$PROJECT_DIR$/frontend/DontPickMe/.idea/workspace.xml" afterDir="false" />
     </list>
     <option name="SHOW_DIALOG" value="false" />
     <option name="HIGHLIGHT_CONFLICTS" value="true" />
@@ -92,7 +87,7 @@
       <option name="presentableId" value="Default" />
       <updated>1753871403329</updated>
       <workItem from="1753871404189" duration="676000" />
-      <workItem from="1753872105222" duration="12819000" />
+      <workItem from="1753872105222" duration="13649000" />
     </task>
     <task id="LOCAL-00001" summary="ready to deploy">
       <option name="closed" value="true" />
@@ -174,7 +169,15 @@
       <option name="project" value="LOCAL" />
       <updated>1753893111794</updated>
     </task>
-    <option name="localTasksCounter" value="11" />
+    <task id="LOCAL-00011" summary="Fix Buttons Lobby + build">
+      <option name="closed" value="true" />
+      <created>1753893194340</created>
+      <option name="number" value="00011" />
+      <option name="presentableId" value="LOCAL-00011" />
+      <option name="project" value="LOCAL" />
+      <updated>1753893194340</updated>
+    </task>
+    <option name="localTasksCounter" value="12" />
     <servers />
   </component>
   <component name="TypeScriptGeneratedFilesManager">
@@ -192,6 +195,7 @@
     <MESSAGE value="Input Fix + new Build" />
     <MESSAGE value="build add" />
     <MESSAGE value="Fix Buttons Lobby" />
-    <option name="LAST_COMMIT_MESSAGE" value="Fix Buttons Lobby" />
+    <MESSAGE value="Fix Buttons Lobby + build" />
+    <option name="LAST_COMMIT_MESSAGE" value="Fix Buttons Lobby + build" />
   </component>
 </project>

@@ -1,4 +1,4 @@
 {
-  "API_URL": "https://dont-choose-me.d-tischer.de/backend"
+  "API_URL": "http://localhost/backend",
+  "ASSETS_URL": "http://localhost/assets"
 }
-
