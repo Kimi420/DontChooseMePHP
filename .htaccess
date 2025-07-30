@@ -1,12 +1,12 @@
 RewriteEngine On
 
-# Wenn genau die Startseite (/) aufgerufen wird
-RewriteRule ^$ frontend/build/index.html [L]
+# 1. Static-Ordner-Umleitung (damit /static/... zu /frontend/build/static/... führt)
+RewriteRule ^static/(.*)$ frontend/build/static/$1 [L]
 
-# Wenn Datei oder Verzeichnis existiert, normal ausliefern
+# 2. Datei oder Verzeichnis existiert → ausliefern
 RewriteCond %{REQUEST_FILENAME} -f [OR]
 RewriteCond %{REQUEST_FILENAME} -d
 RewriteRule ^ - [L]
 
-# Alles andere auch an die SPA weiterleiten
+# 3. Alles andere an index.html der SPA weiterleiten
 RewriteRule ^ frontend/build/index.html [L]
