@@ -35,6 +35,16 @@ class Game {
         $this->players = $players;
     }
 
+    /**
+     * Fügt einen neuen Spieler zum Spiel hinzu
+     */
+    public function addPlayer(string $playerName): Player {
+        $playerId = count($this->players) + 1;
+        $player = new Player($playerId, $playerName);
+        $this->players[] = $player;
+        return $player;
+    }
+
     public function getState(): array {
         return [
             'gameId' => $this->gameId,
