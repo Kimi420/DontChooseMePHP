@@ -119,7 +119,8 @@
           <value>
             <PendingDiffInfo>
               <option name="filePath" value="$PROJECT_DIR$/backend/.htaccess" />
-              <option name="updatedContent" value="# CORS und PHP-API für Backend&#10;&lt;IfModule mod_headers.c&gt;&#10;    Header set Access-Control-Allow-Origin &quot;*&quot;&#10;    Header set Access-Control-Allow-Methods &quot;GET,POST,OPTIONS&quot;&#10;    Header set Access-Control-Allow-Headers &quot;Content-Type&quot;&#10;&lt;/IfModule&gt;&#10;&#10;# PHP-Dateien direkt ausführen&#10;AddType application/json .php&#10;" />
+              <option name="originalContent" value="# CORS und PHP-API für Backend&#10;&lt;IfModule mod_headers.c&gt;&#10;    Header set Access-Control-Allow-Origin &quot;*&quot;&#10;    Header set Access-Control-Allow-Methods &quot;GET,POST,OPTIONS&quot;&#10;    Header set Access-Control-Allow-Headers &quot;Content-Type&quot;&#10;&lt;/IfModule&gt;&#10;&#10;# PHP-Dateien direkt ausführen&#10;AddType application/json .php&#10;&#10;" />
+              <option name="updatedContent" value="# CORS und PHP-API für Backend&#10;&lt;IfModule mod_headers.c&gt;&#10;    Header set Access-Control-Allow-Origin &quot;*&quot;&#10;    Header set Access-Control-Allow-Methods &quot;GET,POST,OPTIONS&quot;&#10;    Header set Access-Control-Allow-Headers &quot;Content-Type&quot;&#10;&lt;/IfModule&gt;&#10;&#10;# Keine unnötigen Typen setzen, PHP bleibt PHP" />
             </PendingDiffInfo>
           </value>
         </entry>

@@ -5,6 +5,4 @@
     Header set Access-Control-Allow-Headers "Content-Type"
 </IfModule>
 
-# PHP-Dateien direkt ausführen
-AddType application/json .php
-
+# Keine unnötigen Typen setzen, PHP bleibt PHP
