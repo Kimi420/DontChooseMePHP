@@ -4,11 +4,14 @@
     <option name="autoReloadType" value="SELECTIVE" />
   </component>
   <component name="ChangeListManager">
-    <list default="true" id="395b49ea-6b7a-4ce0-8b7a-26e97a14a4e0" name="Changes" comment="Deploy Fix Try">
-      <change afterPath="$PROJECT_DIR$/frontend/src/components/VolumeControl.js" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/frontend/DontPickMe/.idea/copilotDiffState.xml" beforeDir="false" afterPath="$PROJECT_DIR$/frontend/DontPickMe/.idea/copilotDiffState.xml" afterDir="false" />
+    <list default="true" id="395b49ea-6b7a-4ce0-8b7a-26e97a14a4e0" name="Changes" comment="Build Ordner">
+      <change afterPath="$PROJECT_DIR$/backend/AudioManager.php" afterDir="false" />
+      <change afterPath="$PROJECT_DIR$/backend/GameManager.php" afterDir="false" />
+      <change afterPath="$PROJECT_DIR$/backend/Game_api.php" afterDir="false" />
+      <change afterPath="$PROJECT_DIR$/backend/index.php" afterDir="false" />
+      <change afterPath="$PROJECT_DIR$/frontend/src/Lobby.php" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/backend/.htaccess" beforeDir="false" afterPath="$PROJECT_DIR$/backend/.htaccess" afterDir="false" />
       <change beforePath="$PROJECT_DIR$/frontend/DontPickMe/.idea/workspace.xml" beforeDir="false" afterPath="$PROJECT_DIR$/frontend/DontPickMe/.idea/workspace.xml" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/frontend/src/App.js" beforeDir="false" afterPath="$PROJECT_DIR$/frontend/src/App.js" afterDir="false" />
     </list>
     <option name="SHOW_DIALOG" value="false" />
     <option name="HIGHLIGHT_CONFLICTS" value="true" />
@@ -62,6 +65,7 @@
     "node.js.selected.package.tslint": "(autodetect)",
     "nodejs_package_manager_path": "npm",
     "settings.editor.selected.configurable": "preferences.pluginManager",
+    "ts.external.directory.path": "C:\\Program Files\\JetBrains\\PhpStorm 2025.1.4.1\\plugins\\javascript-plugin\\jsLanguageServicesImpl\\external",
     "vue.rearranger.settings.migration": "true"
   }
 }]]></component>
@@ -89,7 +93,7 @@
       <option name="presentableId" value="Default" />
       <updated>1753871403329</updated>
       <workItem from="1753871404189" duration="676000" />
-      <workItem from="1753872105222" duration="9565000" />
+      <workItem from="1753872105222" duration="10297000" />
     </task>
     <task id="LOCAL-00001" summary="ready to deploy">
       <option name="closed" value="true" />
@@ -115,7 +119,23 @@
       <option name="project" value="LOCAL" />
       <updated>1753881773635</updated>
     </task>
-    <option name="localTasksCounter" value="4" />
+    <task id="LOCAL-00004" summary="VolumeControl fix">
+      <option name="closed" value="true" />
+      <created>1753882128231</created>
+      <option name="number" value="00004" />
+      <option name="presentableId" value="LOCAL-00004" />
+      <option name="project" value="LOCAL" />
+      <updated>1753882128231</updated>
+    </task>
+    <task id="LOCAL-00005" summary="Build Ordner">
+      <option name="closed" value="true" />
+      <created>1753882242909</created>
+      <option name="number" value="00005" />
+      <option name="presentableId" value="LOCAL-00005" />
+      <option name="project" value="LOCAL" />
+      <updated>1753882242909</updated>
+    </task>
+    <option name="localTasksCounter" value="6" />
     <servers />
   </component>
   <component name="TypeScriptGeneratedFilesManager">
@@ -126,6 +146,8 @@
     <MESSAGE value="ready to deploy" />
     <MESSAGE value="Ready to deploy + build finish" />
     <MESSAGE value="Deploy Fix Try" />
-    <option name="LAST_COMMIT_MESSAGE" value="Deploy Fix Try" />
+    <MESSAGE value="VolumeControl fix" />
+    <MESSAGE value="Build Ordner" />
+    <option name="LAST_COMMIT_MESSAGE" value="Build Ordner" />
   </component>
 </project>
