@@ -152,14 +152,6 @@
             </PendingDiffInfo>
           </value>
         </entry>
-        <entry key="$PROJECT_DIR$/config/database.php">
-          <value>
-            <PendingDiffInfo>
-              <option name="filePath" value="$PROJECT_DIR$/config/database.php" />
-              <option name="updatedContent" value="&lt;?php&#10;// Datenbankverbindung Konfiguration - NIEMALS in Webverzeichnis!&#10;return [&#10;    'DB_HOST' =&gt; 'dein-db-host.netcup.net',&#10;    'DB_NAME' =&gt; 'datenbankname', &#10;    'DB_USER' =&gt; 'benutzername',&#10;    'DB_PASS' =&gt; 'passwort',&#10;    'DB_CHARSET' =&gt; 'utf8mb4'&#10;];&#10;?&gt;&#10;" />
-            </PendingDiffInfo>
-          </value>
-        </entry>
         <entry key="$PROJECT_DIR$/frontend/.htaccess">
           <value>
             <PendingDiffInfo>

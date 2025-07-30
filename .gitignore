@@ -1,8 +1,8 @@
 # Konfigurationsdateien
 config.php
 .env
-*.php
-
+config/*php
+config/database.php
 # Log-Dateien
 *.log
 
