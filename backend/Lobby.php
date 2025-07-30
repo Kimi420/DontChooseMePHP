@@ -1,5 +1,5 @@
 <?php
-// Error-Ausgaben unterdrücken für sauberes JSON
+// Error-Ausgaben komplett unterdrücken für sauberes JSON
 error_reporting(0);
 ini_set('display_errors', 0);
 

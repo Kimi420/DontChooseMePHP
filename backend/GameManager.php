@@ -1,10 +1,7 @@
 <?php
-// Error-Ausgaben unterdrücken für sauberes JSON
+// Error-Ausgaben komplett unterdrücken für sauberes JSON
 error_reporting(0);
 ini_set('display_errors', 0);
-
-// Output-Buffering starten
-ob_start();
 
 header('Access-Control-Allow-Origin: *');
 header('Access-Control-Allow-Methods: POST, GET, OPTIONS');
@@ -15,8 +12,8 @@ if ($_SERVER['REQUEST_METHOD'] === 'OPTIONS') {
     exit();
 }
 
-
 require_once 'Game.php';
+require_once 'Database.php';
 
 /**
  * GameManager-Klasse zur Verwaltung aller laufenden Spiele
@@ -25,12 +22,87 @@ class GameManager {
     /** @var Game[] */
     private array $games = [];
     private string $cardsFile;
+    private PDO $db;
 
     /**
      * Konstruktor für den GameManager
      */
     public function __construct(string $cardsFile = __DIR__ . '/cards.json') {
         $this->cardsFile = $cardsFile;
+        $this->db = Database::getConnection();
+        $this->loadGamesFromDatabase();
+    }
+
+    /**
+     * Lädt alle aktiven Spiele aus der Datenbank
+     */
+    private function loadGamesFromDatabase(): void {
+        try {
+            $stmt = $this->db->prepare("SELECT id, state FROM games WHERE created_at > DATE_SUB(NOW(), INTERVAL 24 HOUR)");
+            $stmt->execute();
+
+            while ($row = $stmt->fetch()) {
+                $gameData = json_decode($row['state'], true);
+                if ($gameData) {
+                    $game = $this->createGameFromData($row['id'], $gameData);
+                    $this->games[$row['id']] = $game;
+                }
+            }
+        } catch (Exception $e) {
+            error_log('Fehler beim Laden der Spiele: ' . $e->getMessage());
+        }
+    }
+
+    /**
+     * Erstellt ein Game-Objekt aus Datenbankdaten
+     */
+    private function createGameFromData(string $gameId, array $gameData): Game {
+        $cardData = $this->loadCardData();
+        $game = new Game($gameId, $cardData);
+
+        // Spielzustand wiederherstellen
+        $game->storytellerIndex = $gameData['storytellerIndex'] ?? 0;
+        $game->phase = $gameData['phase'] ?? 'waiting';
+        $game->selectedCards = $gameData['selectedCards'] ?? [];
+        $game->votes = $gameData['votes'] ?? [];
+        $game->hint = $gameData['hint'] ?? null;
+        $game->storytellerCard = $gameData['storytellerCard'] ?? null;
+        $game->winner = $gameData['winner'] ?? null;
+        $game->mixedCards = $gameData['mixedCards'] ?? [];
+        $game->state = $gameData['state'] ?? 'waiting';
+
+        // Spieler wiederherstellen
+        if (isset($gameData['players'])) {
+            foreach ($gameData['players'] as $playerData) {
+                $player = new Player($playerData['id'], $playerData['name']);
+                $player->score = $playerData['score'] ?? 0;
+                $player->isStoryteller = $playerData['isStoryteller'] ?? false;
+                $player->hasSelectedCard = $playerData['hasSelectedCard'] ?? false;
+                $player->cards = $playerData['cards'] ?? [];
+                $game->players[] = $player;
+            }
+        }
+
+        return $game;
+    }
+
+    /**
+     * Speichert ein Spiel in der Datenbank
+     */
+    private function saveGameToDatabase(Game $game): void {
+        try {
+            $gameState = $game->getState();
+            $stateJson = json_encode($gameState);
+
+            $stmt = $this->db->prepare("
+                INSERT INTO games (id, state) 
+                VALUES (?, ?) 
+                ON DUPLICATE KEY UPDATE state = ?, updated_at = CURRENT_TIMESTAMP
+            ");
+            $stmt->execute([$game->gameId, $stateJson, $stateJson]);
+        } catch (Exception $e) {
+            error_log('Fehler beim Speichern des Spiels: ' . $e->getMessage());
+        }
     }
 
     /**
@@ -49,13 +121,14 @@ class GameManager {
         // Spieler hinzufügen
         $player = $game->addPlayer($playerName);
 
-        // Sicherstellen, dass Spieler Karten hat (falls benötigt)
-        if (empty($player->cards)) {
-            $player->cards = []; // Explizit als leeres Array setzen
+        // Sicherstellen, dass Spieler Karten hat
+        if (!isset($player->cards) || !is_array($player->cards)) {
+            $player->cards = [];
         }
 
-        // Spiel in der Liste speichern
+        // Spiel in der Liste und Datenbank speichern
         $this->games[$gameId] = $game;
+        $this->saveGameToDatabase($game);
 
         return [
             'success' => true,
@@ -87,6 +160,9 @@ class GameManager {
         // Spieler hinzufügen
         $player = $game->addPlayer($playerName);
 
+        // Spiel in Datenbank aktualisieren
+        $this->saveGameToDatabase($game);
+
         return [
             'success' => true,
             'gameId' => $gameId,
@@ -111,7 +187,8 @@ class GameManager {
             return ['success' => false, 'message' => 'Mindestens 3 Spieler benötigt'];
         }
 
-        $game->startRound();
+        $game->startGame();
+        $this->saveGameToDatabase($game);
 
         return ['success' => true];
     }
@@ -124,7 +201,7 @@ class GameManager {
             return [
                 'success' => false,
                 'message' => 'Spiel nicht gefunden',
-                'players' => [], // Fallback für Frontend
+                'players' => [],
                 'gameId' => $gameId,
                 'phase' => 'waiting',
                 'state' => 'waiting'
@@ -151,7 +228,11 @@ class GameManager {
         }
 
         $game = $this->games[$gameId];
-        $result = $game->giveHint($playerName, $cardId, $hint);
+        $result = $game->giveHint($playerName, intval($cardId), $hint);
+
+        if ($result) {
+            $this->saveGameToDatabase($game);
+        }
 
         return ['success' => $result];
     }
@@ -165,7 +246,11 @@ class GameManager {
         }
 
         $game = $this->games[$gameId];
-        $result = $game->chooseCard($playerName, $cardId);
+        $result = $game->chooseCard($playerName, intval($cardId));
+
+        if ($result) {
+            $this->saveGameToDatabase($game);
+        }
 
         return ['success' => $result];
     }
@@ -179,7 +264,11 @@ class GameManager {
         }
 
         $game = $this->games[$gameId];
-        $result = $game->vote($playerName, $cardId);
+        $result = $game->vote($playerName, intval($cardId));
+
+        if ($result) {
+            $this->saveGameToDatabase($game);
+        }
 
         return ['success' => $result];
     }
@@ -194,6 +283,7 @@ class GameManager {
 
         $game = $this->games[$gameId];
         $game->nextRound();
+        $this->saveGameToDatabase($game);
 
         return ['success' => true];
     }
