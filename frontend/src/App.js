@@ -2,7 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { createGame, joinGame, getGameState } from './api';
 import Lobby from './Lobby';
 import Game from './Game';
-// import VolumeControl from './components/VolumeControl';
+import VolumeControl from './components/VolumeControl';
 import audioManager from './AudioManager';
 
 class ErrorBoundary extends React.Component {
