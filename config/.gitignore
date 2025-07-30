@@ -1,0 +1,14 @@
+# Konfigurationsdateien
+config.php
+.env
+database.php
+
+# Log-Dateien
+*.log
+
+# Temporäre Dateien
+*.tmp
+
+# Backup-Dateien
+*.bak
+*~
