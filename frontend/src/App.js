@@ -57,22 +57,13 @@ function App() {
 
     useEffect(() => {
         if (gameId) {
-            const fetchGameState = async () => {
-                try {
-                    const state = await getGameState(gameId);
-                    if (state.success) {
-                        setPlayers(state.players || []);
-                    } else {
-                        console.warn("Fehler beim Abrufen des Spielstatus:", state.message);
-                        setError(state.message || "Fehler beim Laden des Spiels");
-                    }
-                } catch (err) {
-                    console.error("Fehler beim Abrufen des Spielstatus:", err);
-                    setError("Verbindungsfehler: Bitte überprüfe deine Internetverbindung");
+            getGameState(gameId).then(state => {
+                if (state.success) {
+                    setPlayers(state.players || []);
                 }
-            };
-
-            fetchGameState();
+            }).catch(err => {
+                console.error("Fehler beim Abrufen des Spielstatus:", err);
+            });
         }
     }, [gameId, isInGame]);
 
@@ -92,7 +83,7 @@ function App() {
                 setError(res.message || 'Beitritt fehlgeschlagen');
             }
         } catch (e) {
-            setError('Serverfehler: ' + (e.message || 'Unbekannter Fehler'));
+            setError('Serverfehler');
             console.error(e);
         }
     };
@@ -110,10 +101,10 @@ function App() {
                 setIsInGame(true);
                 setError('');
             } else {
-                setError(res.message || 'Spielerstellung fehlgeschlagen');
+                setError(res.message || 'Start fehlgeschlagen');
             }
         } catch (e) {
-            setError('Serverfehler: ' + (e.message || 'Unbekannter Fehler'));
+            setError('Serverfehler');
             console.error(e);
         }
     };
