@@ -123,9 +123,9 @@ function App() {
 
     return (
         <ErrorBoundary>
-            <div className="App" style={{ position: 'relative' }}>
-                {/* VolumeControl für die Startseite */}
-                {!isInGame && <VolumeControl volume={volume} onChange={handleVolumeChange} />}
+            <div className="App">
+                {/* VolumeControl immer sichtbar machen */}
+                <VolumeControl volume={volume} onChange={handleVolumeChange} />
 
                 <div style={{
                     minHeight: '100vh',
