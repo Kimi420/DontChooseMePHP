@@ -34,8 +34,11 @@ class GameManager {
         // Zufällige Spiel-ID generieren
         $gameId = $this->generateGameId();
 
-        // Neues Spiel mit leerem Spieler-Array erstellen
-        $game = new Game($gameId, []);
+        // Kartendaten laden
+        $cardData = $this->loadCardData();
+
+        // Neues Spiel erstellen
+        $game = new Game($gameId, $cardData);
 
         // Spieler hinzufügen
         $player = $game->addPlayer($playerName);

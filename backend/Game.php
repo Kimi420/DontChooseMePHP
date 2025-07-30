@@ -29,10 +29,12 @@ class Game {
     public ?string $winner = null;
     public array $mixedCards = [];
     public string $state = 'waiting';
+    public array $cardData = [];
 
-    public function __construct(string $gameId, array $players) {
+    public function __construct(string $gameId, array $cardData = []) {
         $this->gameId = $gameId;
-        $this->players = $players;
+        $this->players = [];
+        $this->cardData = $cardData;
     }
 
     /**
