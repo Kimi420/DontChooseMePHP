@@ -64,7 +64,7 @@ export async function joinGame(gameId, playerName) {
 
 export async function getGameState(gameId) {
   try {
-    const res = await fetch(`${API_URL}/Game.php?gameId=${gameId}`);
+    const res = await fetch(`${API_URL}/Game_api.php?gameId=${gameId}`);
     return parseJSONResponse(res);
   } catch (error) {
     console.error('Fehler beim Abrufen des Spielstatus:', error);
@@ -74,7 +74,7 @@ export async function getGameState(gameId) {
 
 export async function giveHint(gameId, playerName, cardId, hint) {
   try {
-    const res = await fetch(`${API_URL}/Game.php`, {
+    const res = await fetch(`${API_URL}/Game_api.php`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ gameId, playerName, cardId, hint, action: 'giveHint' })
@@ -88,7 +88,7 @@ export async function giveHint(gameId, playerName, cardId, hint) {
 
 export async function chooseCard(gameId, playerName, cardId) {
   try {
-    const res = await fetch(`${API_URL}/Game.php`, {
+    const res = await fetch(`${API_URL}/Game_api.php`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ gameId, playerName, cardId, action: 'chooseCard' })
@@ -102,7 +102,7 @@ export async function chooseCard(gameId, playerName, cardId) {
 
 export async function vote(gameId, playerName, cardId) {
   try {
-    const res = await fetch(`${API_URL}/Game.php`, {
+    const res = await fetch(`${API_URL}/Game_api.php`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ gameId, playerName, cardId, action: 'vote' })
@@ -116,7 +116,7 @@ export async function vote(gameId, playerName, cardId) {
 
 export async function nextRound(gameId) {
   try {
-    const res = await fetch(`${API_URL}/Game.php`, {
+    const res = await fetch(`${API_URL}/Game_api.php`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ gameId, action: 'nextRound' })
