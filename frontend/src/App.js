@@ -58,19 +58,25 @@ function App() {
     useEffect(() => {
         if (gameId) {
             getGameState(gameId).then(state => {
-                setPlayers(state.players || []);
+                if (state.success) {
+                    setPlayers(state.players || []);
+                }
+            }).catch(err => {
+                console.error("Fehler beim Abrufen des Spielstatus:", err);
             });
         }
     }, [gameId, isInGame]);
 
-    const handleJoin = async () => {
-        if (!gameId || !playerName) {
+    const handleJoin = async (roomId, name) => {
+        if (!roomId || !name) {
             setError('Bitte Raum-ID und Namen eingeben!');
             return;
         }
         try {
-            const res = await joinGame(gameId, playerName);
+            const res = await joinGame(roomId, name);
             if (res.success) {
+                setGameId(roomId);
+                setPlayerName(name);
                 setIsInGame(true);
                 setError('');
             } else {
@@ -78,17 +84,20 @@ function App() {
             }
         } catch (e) {
             setError('Serverfehler');
+            console.error(e);
         }
     };
 
-    const handleStart = async () => {
-        if (players.length < 3) {
-            setError('Mindestens 3 Spieler benötigt!');
+    const handleStart = async (name) => {
+        if (!name) {
+            setError('Bitte Namen eingeben!');
             return;
         }
         try {
-            const res = await createGame(playerName);
+            const res = await createGame(name);
             if (res.success) {
+                setGameId(res.gameId);
+                setPlayerName(name);
                 setIsInGame(true);
                 setError('');
             } else {
@@ -96,6 +105,7 @@ function App() {
             }
         } catch (e) {
             setError('Serverfehler');
+            console.error(e);
         }
     };
 
