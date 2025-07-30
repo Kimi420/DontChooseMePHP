@@ -11,60 +11,47 @@ if ($_SERVER['REQUEST_METHOD'] === 'OPTIONS') {
     exit();
 }
 
-require_once 'Player.php';
+// Error Reporting für Debugging
+error_reporting(E_ALL);
+ini_set('display_errors', 1);
 
-/**
- * Lobby-Klasse für die Verwaltung der Spiel-Lobby
- */
-class Lobby {
-    private string $gameId;
-    /** @var Player[] */
-    private array $players = [];
-    private string $state = 'waiting'; // 'waiting' oder 'playing'
+try {
+    require_once 'Player.php';
+    require_once 'GameManager.php';
 
-    public function __construct(string $gameId) {
-        $this->gameId = $gameId;
-    }
+    $gameManager = new GameManager();
 
-    /**
-     * Spieler tritt der Lobby bei
-     */
-    public function joinLobby(Player $player): bool {
-        foreach ($this->players as $p) {
-            if ($p->name === $player->name) {
-                return false; // Name schon vergeben
-            }
+    if ($_SERVER['REQUEST_METHOD'] === 'POST') {
+        $jsonData = file_get_contents('php://input');
+        $data = json_decode($jsonData, true);
+
+        if (!$data) {
+            echo json_encode(['success' => false, 'message' => 'Ungültige JSON-Daten']);
+            exit;
         }
-        $this->players[] = $player;
-        return true;
-    }
 
-    /**
-     * Spieler verlässt die Lobby
-     */
-    public function leaveLobby(string $playerName): void {
-        $this->players = array_filter($this->players, fn($p) => $p->name !== $playerName);
-    }
-
-    /**
-     * Gibt den aktuellen Lobby-Status zurück
-     */
-    public function getState(): array {
-        return [
-            'gameId' => $this->gameId,
-            'players' => array_map(fn($p) => ['id' => $p->id, 'name' => $p->name], $this->players),
-            'state' => $this->state
-        ];
-    }
-
-    /**
-     * Startet das Spiel, wenn genug Spieler vorhanden sind
-     */
-    public function startGame(): bool {
-        if (count($this->players) >= 3) {
-            $this->state = 'playing';
-            return true;
+        if (!isset($data['playerName'])) {
+            echo json_encode(['success' => false, 'message' => 'Spielername fehlt']);
+            exit;
         }
-        return false;
+
+        $playerName = $data['playerName'];
+
+        if (isset($data['gameId'])) {
+            // Spiel beitreten
+            $gameId = $data['gameId'];
+            $result = $gameManager->joinGame($gameId, $playerName);
+        } else {
+            // Neues Spiel erstellen
+            $result = $gameManager->createGame($playerName);
+        }
+
+        echo json_encode($result);
+    } else {
+        echo json_encode(['success' => false, 'message' => 'Nur POST-Anfragen unterstützt']);
     }
+
+} catch (Exception $e) {
+    echo json_encode(['success' => false, 'message' => 'Server-Fehler: ' . $e->getMessage()]);
 }
+?>

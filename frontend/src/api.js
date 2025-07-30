@@ -8,6 +8,16 @@ async function parseJSONResponse(response) {
   try {
     // Prüfen, ob die Antwort erfolgreich war
     if (!response.ok) {
+      // Bei 500er Fehlern versuchen wir trotzdem, die Antwort zu lesen
+      if (response.status === 500) {
+        try {
+          const text = await response.text();
+          console.error('Server-Fehler (500):', text);
+          return { success: false, message: `Server-Fehler: ${text}` };
+        } catch {
+          return { success: false, message: 'Server-Fehler (500): Keine Details verfügbar' };
+        }
+      }
       throw new Error(`HTTP error! Status: ${response.status}`);
     }
 
