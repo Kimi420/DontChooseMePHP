@@ -1,12 +1,9 @@
 RewriteEngine On
 
-# Wenn genau die Startseite (/) aufgerufen wird
-RewriteRule ^$ frontend/build/index.html [L]
-
-# Wenn Datei oder Verzeichnis existiert, normal ausliefern
+# Wenn Datei oder Verzeichnis existiert → normal ausliefern
 RewriteCond %{REQUEST_FILENAME} -f [OR]
 RewriteCond %{REQUEST_FILENAME} -d
 RewriteRule ^ - [L]
 
-# Alles andere auch an die SPA weiterleiten
+# Wenn die Anfrage NICHT nach einer Datei aussieht (kein Punkt), dann weiterleiten
 RewriteRule ^ frontend/build/index.html [L]
