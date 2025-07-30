@@ -14,6 +14,11 @@ RewriteCond %{REQUEST_FILENAME} !-f
 RewriteCond %{REQUEST_FILENAME} !-d
 RewriteRule ^ - [R=200,L]
 
-# API-Endpunkte umleiten
+# API-Endpunkte umleiten, aber nur wenn keine Datei/Verzeichnis existiert
+RewriteCond %{REQUEST_FILENAME} !-f
+RewriteCond %{REQUEST_FILENAME} !-d
 RewriteRule ^api/$ index.php [L]
+
+RewriteCond %{REQUEST_FILENAME} !-f
+RewriteCond %{REQUEST_FILENAME} !-d
 RewriteRule ^Game.php$ Game_api.php [L]
