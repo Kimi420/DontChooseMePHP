@@ -2,7 +2,11 @@
 /**
  * Utility-Funktionen für die Spiellogik
  */
-
+// CORS-Header für alle Anfragen setzen
+header('Access-Control-Allow-Origin: *');
+header('Access-Control-Allow-Methods: POST, GET, OPTIONS');
+header('Access-Control-Allow-Headers: Content-Type, Authorization');
+header('Content-Type: application/json');
 /**
  * Mischt ein Array zufällig (Fisher-Yates Shuffle)
  * @param array $array - Das zu mischende Array
