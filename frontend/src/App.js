@@ -41,8 +41,8 @@ function App() {
     useEffect(() => {
         audioManager.setVolume(volume);
 
-        // Auto-start Lobby-Musik mit reduzierter Lautstärke
-        audioManager.playTrack('lobby.mp3', true, 2000);
+        // ENTFERNT: Auto-start Lobby-Musik, da Dateien nicht existieren
+        // audioManager.playTrack('lobby.mp3', true, 2000);
 
         // Cleanup bei App-Beendigung
         return () => {
@@ -113,8 +113,8 @@ function App() {
         setIsInGame(false);
         setGameId('');
         setPlayers([]);
-        // Wechsel zurück zur Lobby-Musik
-        audioManager.playTrack('lobby.mp3', true, 1000);
+        // ENTFERNT: Wechsel zurück zur Lobby-Musik
+        // audioManager.playTrack('lobby.mp3', true, 1000);
     };
 
     const handleVolumeChange = (newVolume) => {
@@ -165,25 +165,6 @@ function App() {
                             }}>
                                 Das kreative Ratespiel für Freunde und Familie
                             </p>
-
-                            {/* Audio Indicator für Startseite */}
-                            {!isInGame && (
-                                <div style={{
-                                    position: 'absolute',
-                                    top: '15px',
-                                    right: '15px',
-                                    display: 'flex',
-                                    alignItems: 'center',
-                                    gap: '8px',
-                                    background: 'rgba(255,255,255,0.1)',
-                                    padding: '6px 12px',
-                                    borderRadius: '20px',
-                                    fontSize: '12px',
-                                    opacity: 0.7
-                                }}>
-                                    🎵 Willkommensmusik
-                                </div>
-                            )}
                         </div>
 
                         {/* Main Content */}
