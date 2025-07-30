@@ -5,6 +5,10 @@
     Header set Access-Control-Allow-Headers "Content-Type"
 </IfModule>
 
+# PHP-Fehler nicht als HTML anzeigen
+php_flag display_errors off
+php_flag log_errors on
+
 RewriteEngine On
 
 # OPTIONS-Preflight-Anfragen direkt beantworten
