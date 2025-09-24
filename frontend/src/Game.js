@@ -118,30 +118,63 @@ function Game({ gameId, playerName, onLeaveGame }) {
   const mixedCards = (phase === 'voting' || phase === 'reveal') ? (gameState.mixedCards || []) : [];
   const storytellerCardId = gameState.storytellerCard;
 
-  const renderMixed = (interactive = true) => (
-    <div className="mixed-grid">
-      {mixedCards.map(cid => {
-        const meta = getCardMeta(cid) || { image:'', title:'Karte '+cid };
-        const isMyVote = votedCard === cid || votes.some(v => v.playerId === me?.id && v.cardId === cid);
-        const canBaseVote = interactive && phase === 'voting' && !isStoryteller && !hasVoted;
-        // Eigene eingereichte Karte identifizieren (Storyteller-Karte zählt nicht, da Erzähler nicht abstimmt)
-        const isOwnSubmission = submissions.some(s => s.cardId === cid && s.playerId === me?.id);
-        const disabledSelf = phase === 'voting' && isOwnSubmission && !isStoryteller; // darf nicht für eigene Karte stimmen
-        const canVote = canBaseVote && !disabledSelf;
-        return (
-          <div key={cid}
-               className={`card-tile ${isMyVote ? 'selected' : ''} ${disabledSelf ? 'locked self-lock' : ''}`}
-               onClick={() => canVote && handleVote(cid)}
-               title={disabledSelf ? 'Eigene Karte – nicht wählbar' : meta.title}>
-            {meta.image && <img src={`/${meta.image}`} alt={meta.title} />}
-            {isMyVote && <div className="card-check">🗳</div>}
-            {disabledSelf && <div className="card-badge self-badge">Eigene</div>}
-            {phase === 'reveal' && cid === storytellerCardId && <div className="card-badge" style={{background:'rgba(255,215,0,0.75)'}}>Erzähler</div>}
-          </div>
-        );
-      })}
-    </div>
-  );
+  const renderMixed = (interactive = true) => {
+    // Für Reveal: Owner- und Vote-Mapping vorbereiten
+    let ownerMap = {};
+    let voteMap = {};
+    if (phase === 'reveal') {
+      const storytellerSeat = gameState.storytellerIndex + 1;
+      if (storytellerCardId) ownerMap[storytellerCardId] = storytellerSeat;
+      submissions.forEach(s => { ownerMap[s.cardId] = s.playerId; });
+      votes.forEach(v => {
+        if (!voteMap[v.cardId]) voteMap[v.cardId] = [];
+        voteMap[v.cardId].push(v.playerId);
+      });
+    }
+    const nameById = Object.fromEntries(gameState.players.map(p => [p.id, p.name]));
+    return (
+      <div className="mixed-grid">
+        {mixedCards.map(cid => {
+          const meta = getCardMeta(cid) || { image:'', title:'Karte '+cid };
+          const isMyVote = votedCard === cid || votes.some(v => v.playerId === me?.id && v.cardId === cid);
+            const canBaseVote = interactive && phase === 'voting' && !isStoryteller && !hasVoted;
+          const isOwnSubmission = submissions.some(s => s.cardId === cid && s.playerId === me?.id);
+          const disabledSelf = phase === 'voting' && isOwnSubmission && !isStoryteller;
+          const canVote = canBaseVote && !disabledSelf;
+          const isStoryCard = cid === storytellerCardId;
+
+          // Reveal-Infos
+          let ownerName = null; let voterNames = []; let voterLine = '';
+          if (phase === 'reveal') {
+            const ownerId = ownerMap[cid];
+            ownerName = ownerId ? nameById[ownerId] : 'Unbekannt';
+            voterNames = voteMap[cid] ? voteMap[cid].map(id => nameById[id]) : [];
+            if (voterNames.length === 0) voterLine = 'Keine Stimmen';
+            else if (voterNames.join(', ').length < 26) voterLine = voterNames.join(', ');
+            else voterLine = voterNames.length + ' Stimmen';
+          }
+
+          return (
+            <div key={cid}
+                 className={`card-tile ${isMyVote ? 'selected' : ''} ${disabledSelf ? 'locked self-lock' : ''}`}
+                 onClick={() => canVote && handleVote(cid)}
+                 title={disabledSelf ? 'Eigene Karte – nicht wählbar' : meta.title}>
+              {meta.image && <img src={`/${meta.image}`} alt={meta.title} />}
+              {isMyVote && <div className="card-check">🗳</div>}
+              {disabledSelf && <div className="card-badge self-badge">Eigene</div>}
+              {phase === 'reveal' && isStoryCard && <div className="card-badge" style={{background:'rgba(255,215,0,0.75)'}}>Erzähler</div>}
+              {phase === 'reveal' && (
+                <div className="card-meta-bar">
+                  <div className={`owner-line ${isStoryCard ? 'story-owner':''}`}>👤 {ownerName || '–'}{isStoryCard ? ' (Erzähler)' : ''}</div>
+                  <div className="votes-line">🗳 {voterLine}</div>
+                </div>
+              )}
+            </div>
+          );
+        })}
+      </div>
+    );
+  };
 
   /* --- Sidebar: Spieler & Status --- */
   const renderPlayers = () => (
