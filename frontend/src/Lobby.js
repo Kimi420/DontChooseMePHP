@@ -39,35 +39,55 @@ function Lobby({ players, playerName, gameId, error, onJoin, onStart, onLeave })
     onStart(inputPlayerName);
   };
 
+  const hostPlayer = players && players.length > 0 ? players.reduce((min, p) => (p.id < min.id ? p : min), players[0]) : null;
+  const isHost = !!hostPlayer && hostPlayer.name === playerName;
+  const enoughPlayers = players.length >= 3;
+
   return (
     <div className="lobby-container">
       {gameId ? (
-        // Wenn ein Spiel bereits aktiv ist, zeige Spieler-Liste
+        // Wenn ein Raum existiert, aber das Spiel noch nicht gestartet wurde
         <>
           <h2>🏠 Raum: {gameId}</h2>
           <div className="lobby-players">
             <h3>👥 Spieler ({players.length})</h3>
             <div style={{ display: 'grid', gap: '12px', gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))' }}>
-              {players.map((player, idx) => (
+              {players.map((player) => (
                 <div key={player.id} className="lobby-player-card">
                   <div style={{ fontSize: '24px', marginBottom: '8px' }}>
-                    {idx === 0 ? '👑' : '🎮'}
+                    {hostPlayer && player.id === hostPlayer.id ? '👑' : '🎮'}
                   </div>
                   <div style={{ fontWeight: 'bold', fontSize: '16px' }}>{player.name}</div>
-                  {idx === 0 && <div style={{ color: '#FFD700', fontSize: '12px', marginTop: '4px', fontWeight: 'bold' }}>Raumleiter</div>}
+                  {hostPlayer && player.id === hostPlayer.id && (
+                    <div style={{ color: '#FFD700', fontSize: '12px', marginTop: '4px', fontWeight: 'bold' }}>Raumleiter</div>
+                  )}
                 </div>
               ))}
             </div>
           </div>
-          <button
-            className="lobby-btn"
-            onClick={() => onStart()}
-            disabled={players.length < 3 || (players[0] && players[0].name !== playerName)}
-            title={players.length < 3 ? 'Mindestens 3 Spieler nötig' : (players[0] && players[0].name !== playerName ? 'Nur der Raumleiter kann starten' : 'Spiel starten')}
-          >
-            🎮 Spiel starten!
-          </button>
-          <button className="lobby-btn" onClick={onLeave}>🚪 Verlassen</button>
+
+          <div style={{ marginTop: '24px', padding: '16px', background: 'rgba(255,255,255,0.08)', borderRadius: '12px', border: '1px solid rgba(255,255,255,0.15)' }}>
+            <h3 style={{ marginTop: 0 }}>Spielstart</h3>
+            {!enoughPlayers && (
+              <div style={{ color: '#ffeb99', fontSize: '14px', marginBottom: '8px' }}>⏳ Warten... Mindestens 3 Spieler benötigt (aktuell {players.length}).</div>
+            )}
+            {enoughPlayers && !isHost && (
+              <div style={{ color: '#9fd4ff', fontSize: '14px', marginBottom: '8px' }}>Der Raumleiter ({hostPlayer?.name}) kann das Spiel jetzt starten.</div>
+            )}
+            {enoughPlayers && isHost && (
+              <div style={{ color: '#b6ffb3', fontSize: '14px', marginBottom: '8px' }}>Bereit! Starte das Spiel, wenn alle soweit sind.</div>
+            )}
+            <button
+              className="lobby-btn"
+              style={{ opacity: enoughPlayers ? 1 : 0.6, cursor: enoughPlayers && isHost ? 'pointer' : 'not-allowed' }}
+              onClick={() => isHost && enoughPlayers && onStart()}
+              disabled={!enoughPlayers || !isHost}
+            >
+              🎮 Spiel starten
+            </button>
+          </div>
+
+          <button className="lobby-btn" style={{ marginTop: '16px' }} onClick={onLeave}>🚪 Verlassen</button>
         </>
       ) : (
         // Wenn noch kein Spiel aktiv ist, zeige Eingabefelder
