@@ -29,11 +29,20 @@ class Game {
     public array $mixedCards = [];
     public string $state = 'waiting';
     public array $cardData = [];
+    /**
+     * Restlicher Kartenstapel (enthält noch nicht verteilte Karten-IDs)
+     * @var int[]
+     */
+    public array $deck = [];
+    private int $HAND_SIZE = 6;
 
     public function __construct(string $gameId, array $cardData = []) {
         $this->gameId = $gameId;
         $this->players = [];
         $this->cardData = $cardData;
+        // Deck initialisieren mit allen Karten-IDs aus cardData
+        $this->deck = array_map(fn($c) => (int)($c['id'] ?? 0), $cardData);
+        $this->deck = array_values(array_filter($this->deck, fn($id) => $id > 0));
     }
 
     /**
@@ -77,7 +86,9 @@ class Game {
             'storytellerCard' => $this->storytellerCard,
             'winner' => $this->winner,
             'mixedCards' => $this->mixedCards ?? [],
-            'state' => $this->state ?? 'waiting'
+            'state' => $this->state ?? 'waiting',
+            'deck' => $this->deck,
+            'cardData' => $this->cardData
         ];
     }
 
@@ -95,9 +106,43 @@ class Game {
             $this->players[0]->isStoryteller = true;
         }
 
+        // Karten austeilen, falls Spieler noch keine Karten besitzen
+        $this->dealHandsIfNeeded();
+
         // Protokolliere die Aktion
         if (class_exists('Database')) {
             Database::logGameAction($this->gameId, 'game_started', null, ['playerCount' => count($this->players)]);
+        }
+    }
+
+    private function dealHandsIfNeeded(): void {
+        // Prüfen ob bereits Karten vorhanden (wir nehmen ersten Spieler als Referenz)
+        $alreadyDealt = false;
+        foreach ($this->players as $p) {
+            if (!empty($p->cards)) { $alreadyDealt = true; break; }
+        }
+        if ($alreadyDealt) return;
+
+        // Deck durchmischen
+        shuffle($this->deck);
+
+        foreach ($this->players as $player) {
+            $player->cards = [];
+            for ($i = 0; $i < $this->HAND_SIZE; $i++) {
+                if (empty($this->deck)) break; // Keine Karten mehr
+                $cardId = array_shift($this->deck);
+                $player->cards[] = $cardId; // Speichern nur die ID
+            }
+        }
+    }
+
+    private function replenishHands(): void {
+        // Spieler nachziehen bis HAND_SIZE oder Deck leer
+        foreach ($this->players as $player) {
+            while (count($player->cards) < $this->HAND_SIZE && !empty($this->deck)) {
+                $cardId = array_shift($this->deck);
+                $player->cards[] = $cardId;
+            }
         }
     }
 
@@ -111,15 +156,21 @@ class Game {
         }
 
         if ($storyteller && $storyteller->name === $playerName) {
+            // Validierung: Hinweis darf nicht leer sein
+            if (trim($hint) === '') {
+                return false;
+            }
+            // Validierung: Karte muss in seiner Hand sein
+            if (!in_array($cardId, $storyteller->cards, true)) {
+                return false; // Ungültige Karte
+            }
             $this->hint = $hint;
             $this->storytellerCard = $cardId;
             $this->phase = 'selectCards';
 
-            // Protokolliere die Aktion
             if (class_exists('Database')) {
                 Database::logGameAction($this->gameId, 'hint_given', $playerName, ['cardId' => $cardId, 'hint' => $hint]);
             }
-
             return true;
         }
         return false;
@@ -128,17 +179,25 @@ class Game {
     public function chooseCard(string $playerName, int $cardId): bool {
         foreach ($this->players as $player) {
             if ($player->name === $playerName && !$player->isStoryteller) {
+                // Karte muss in seiner Hand sein
+                if (!in_array($cardId, $player->cards, true)) {
+                    return false;
+                }
+                // Verhindere Doppel-Wahl desselben Spielers
+                foreach ($this->selectedCards as $sc) {
+                    if ($sc['playerId'] === $player->id) {
+                        return false; // Bereits gewählt
+                    }
+                }
                 $this->selectedCards[] = [
                     'playerId' => $player->id,
                     'cardId' => $cardId
                 ];
                 $player->hasSelectedCard = true;
 
-                // Protokolliere die Aktion
                 if (class_exists('Database')) {
                     Database::logGameAction($this->gameId, 'card_selected', $playerName, ['cardId' => $cardId]);
                 }
-
                 break;
             }
         }
@@ -146,24 +205,41 @@ class Game {
         // Wenn alle Spieler (außer Erzähler) gewählt haben, nächste Phase
         $nonStorytellerCount = 0;
         foreach ($this->players as $player) {
-            if (!$player->isStoryteller) {
-                $nonStorytellerCount++;
-            }
+            if (!$player->isStoryteller) { $nonStorytellerCount++; }
         }
-
         if (count($this->selectedCards) >= $nonStorytellerCount) {
             $this->phase = 'voting';
-        }
+            // Mixed Cards erzeugen (Storyteller + alle ausgewählten)
+            $allCardIds = array_map(fn($sc) => $sc['cardId'], $this->selectedCards);
+            if ($this->storytellerCard !== null) {
+                $allCardIds[] = $this->storytellerCard;
+            }
+            $allCardIds = array_values(array_unique($allCardIds));
+            shuffle($allCardIds);
+            $this->mixedCards = $allCardIds;
 
+            // Gespielte Karten aus Händen entfernen
+            foreach ($this->players as $p) {
+                $used = [];
+                if ($p->isStoryteller && $this->storytellerCard !== null) {
+                    $used[] = $this->storytellerCard;
+                } else {
+                    foreach ($this->selectedCards as $sc) {
+                        if ($sc['playerId'] === $p->id) { $used[] = $sc['cardId']; break; }
+                    }
+                }
+                if ($used) {
+                    $p->cards = array_values(array_filter($p->cards, fn($cId) => !in_array($cId, $used, true)));
+                }
+            }
+        }
         return true;
     }
 
     public function vote(string $playerName, int $cardId): bool {
         foreach ($this->players as $player) {
             if ($player->name === $playerName) {
-                // Spieler darf nicht für eigene Karte stimmen
-                $ownCard = array_filter($this->selectedCards, fn($sc) => $sc['playerId'] === $player->id && $sc['cardId'] === $cardId);
-                if ($ownCard) return false;
+                if ($player->isStoryteller) { return false; } // Erzähler stimmt nicht ab
 
                 $this->votes[] = [
                     'playerId' => $player->id,
@@ -215,6 +291,9 @@ class Game {
         $this->hint = null;
         $this->storytellerCard = null;
 
+        // Nachziehen für neue Runde
+        $this->replenishHands();
+
         // Protokolliere die Aktion
         if (class_exists('Database')) {
             Database::logGameAction($this->gameId, 'next_round', null, ['newStoryteller' => $this->storytellerIndex]);
@@ -235,3 +314,4 @@ class Game {
         $this->storytellerIndex = 0;
     }
 }
+?>

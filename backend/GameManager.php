@@ -70,6 +70,9 @@ class GameManager {
         $game->winner = $gameData['winner'] ?? null;
         $game->mixedCards = $gameData['mixedCards'] ?? [];
         $game->state = $gameData['state'] ?? 'waiting';
+        if (isset($gameData['deck']) && is_array($gameData['deck'])) {
+            $game->deck = $gameData['deck'];
+        }
 
         // Spieler wiederherstellen
         if (isset($gameData['players'])) {

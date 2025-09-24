@@ -143,3 +143,4 @@ if (is_file($indexFile)) {
 http_response_code(500);
 header('Content-Type: text/plain; charset=utf-8');
 print "Build index.html nicht gefunden. Bitte zuerst Frontend bauen (z.B. 'npm run build').";
+//
