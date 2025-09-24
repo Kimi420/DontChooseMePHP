@@ -17,12 +17,17 @@ class Player {
     public int $id;
     public string $name;
     public int $score;
-    /** @var Card[] */
-    public array $hand;
+    /** @var Card[]|array */
+    public array $hand; // (wird aktuell nicht genutzt – cards wird verwendet)
     public bool $isActive;
     public bool $isStoryteller;
     public bool $hasSelectedCard;
-    public array $cards = []; // Fehlende Property hinzugefügt
+    /**
+     * Karten, die der Spieler aktuell hat (wird vom Spiel genutzt)
+     * @var array<int, mixed>
+     */
+    public array $cards = [];
+
     public function __construct(
         int $id,
         string $name,
@@ -39,24 +44,37 @@ class Player {
         $this->isActive = $isActive;
         $this->isStoryteller = $isStoryteller;
         $this->hasSelectedCard = $hasSelectedCard;
-    }
-        $this->cards = []; // Initialisierung der cards-Array
+        // $this->cards bereits über Property-Default initialisiert
     }
 
+    /**
+     * Fügt dem Spieler eine Karte hinzu
+     * @param Card|array $card
+     */
     public function addCard($card): void {
         $this->cards[] = $card;
     }
 
+    /**
+     * Entfernt eine Karte anhand ihrer ID
+     */
     public function removeCard($cardId): bool {
         foreach ($this->cards as $key => $card) {
-            if ($card->id === $cardId || $card['id'] === $cardId) {
+            // Unterstützt sowohl Objekt- als auch Array-Repräsentation
+            $currentId = is_object($card) ? ($card->id ?? null) : ($card['id'] ?? null);
+            if ($currentId === $cardId) {
                 unset($this->cards[$key]);
-                $this->cards = array_values($this->cards); // Array-Indizes neu ordnen
+                $this->cards = array_values($this->cards); // Neu indexieren
                 return true;
             }
         }
         return false;
     }
 
+    /**
+     * Gibt alle Karten des Spielers zurück
+     */
     public function getCards(): array {
         return $this->cards;
+    }
+}
