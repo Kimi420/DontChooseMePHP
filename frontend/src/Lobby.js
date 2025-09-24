@@ -1,5 +1,6 @@
 import React, { useState } from 'react';
 import './LobbyStyle.css';
+import './AppLayout.css';
 
 function Lobby({ players, playerName, gameId, error, onJoin, onStart, onLeave }) {
   const [inputPlayerName, setInputPlayerName] = useState('');
@@ -43,89 +44,107 @@ function Lobby({ players, playerName, gameId, error, onJoin, onStart, onLeave })
   const isHost = !!hostPlayer && hostPlayer.name === playerName;
   const enoughPlayers = players.length >= 3;
 
-  return (
-    <div className="lobby-container">
-      {gameId ? (
-        // Wenn ein Raum existiert, aber das Spiel noch nicht gestartet wurde
-        <>
-          <h2>🏠 Raum: {gameId}</h2>
-          <div className="lobby-players">
-            <h3>👥 Spieler ({players.length})</h3>
-            <div style={{ display: 'grid', gap: '12px', gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))' }}>
-              {players.map((player) => (
-                <div key={player.id} className="lobby-player-card">
-                  <div style={{ fontSize: '24px', marginBottom: '8px' }}>
-                    {hostPlayer && player.id === hostPlayer.id ? '👑' : '🎮'}
-                  </div>
-                  <div style={{ fontWeight: 'bold', fontSize: '16px' }}>{player.name}</div>
-                  {hostPlayer && player.id === hostPlayer.id && (
-                    <div style={{ color: '#FFD700', fontSize: '12px', marginTop: '4px', fontWeight: 'bold' }}>Raumleiter</div>
-                  )}
-                </div>
-              ))}
-            </div>
-          </div>
+  if (gameId) {
+    // Lobby-Ansicht für existierendes Spiel (Pre-Start)
+    return (
+      <div className="stack" style={{ width: '100%' }}>
+        <div className="space-between" style={{ flexWrap: 'wrap', gap: 12 }}>
+          <h2 style={{ margin: '0 0 4px 0', fontSize: '1.3rem' }}>
+            Raum <span style={{ fontWeight: 600 }}>{gameId}</span>
+          </h2>
+          <div className="notice">👥 Spieler: {players.length}</div>
+        </div>
 
-          <div style={{ marginTop: '24px', padding: '16px', background: 'rgba(255,255,255,0.08)', borderRadius: '12px', border: '1px solid rgba(255,255,255,0.15)' }}>
-            <h3 style={{ marginTop: 0 }}>Spielstart</h3>
-            {!enoughPlayers && (
-              <div style={{ color: '#ffeb99', fontSize: '14px', marginBottom: '8px' }}>⏳ Warten... Mindestens 3 Spieler benötigt (aktuell {players.length}).</div>
-            )}
-            {enoughPlayers && !isHost && (
-              <div style={{ color: '#9fd4ff', fontSize: '14px', marginBottom: '8px' }}>Der Raumleiter ({hostPlayer?.name}) kann das Spiel jetzt starten.</div>
-            )}
-            {enoughPlayers && isHost && (
-              <div style={{ color: '#b6ffb3', fontSize: '14px', marginBottom: '8px' }}>Bereit! Starte das Spiel, wenn alle soweit sind.</div>
-            )}
+        <div className="player-grid">
+          {players.map((p) => {
+            const isHostCard = hostPlayer && p.id === hostPlayer.id;
+            return (
+              <div
+                key={p.id}
+                className="player-card"
+                style={{
+                  border: isHostCard ? '1px solid var(--color-accent)' : '1px solid var(--color-border)',
+                }}
+              >
+                <div style={{ fontSize: '1.1rem' }}>{isHostCard ? '👑' : '🎮'} {p.name}</div>
+                {isHostCard && <div className="role">RAUMLEITER</div>}
+              </div>
+            );
+          })}
+        </div>
+
+        <div className="sidebar-section" style={{ marginTop: 4 }}>
+          <h3 style={{ margin: '0 0 8px 0' }}>Spielstart</h3>
+          {!enoughPlayers && <div className="notice">⏳ Warte auf weitere Spieler (min. 3)</div>}
+          {enoughPlayers && !isHost && <div className="notice">Der Raumleiter ({hostPlayer?.name}) kann starten</div>}
+          {enoughPlayers && isHost && (
+            <div className="notice" style={{ background: 'rgba(16,185,129,0.25)', borderColor: 'rgba(16,185,129,0.5)' }}>
+              Bereit zum Start ✅
+            </div>
+          )}
+          <div style={{ display: 'flex', gap: 10, flexWrap: 'wrap', marginTop: 12 }}>
             <button
-              className="lobby-btn"
-              style={{ opacity: enoughPlayers ? 1 : 0.6, cursor: enoughPlayers && isHost ? 'pointer' : 'not-allowed' }}
-              onClick={() => isHost && enoughPlayers && onStart()}
+              className="btn"
               disabled={!enoughPlayers || !isHost}
+              onClick={() => onStart()}
             >
               🎮 Spiel starten
             </button>
+            <button className="btn outline" onClick={onLeave}>🚪 Verlassen</button>
           </div>
+        </div>
 
-          <button className="lobby-btn" style={{ marginTop: '16px' }} onClick={onLeave}>🚪 Verlassen</button>
-        </>
-      ) : (
-        // Wenn noch kein Spiel aktiv ist, zeige Eingabefelder
-        <>
-          <h2>Willkommen bei "Don't Choose Me"</h2>
+        {(localError || error) && <div className="alert">⚠️ {localError || error}</div>}
+      </div>
+    );
+  }
 
-          <div className="form-group">
-            <label htmlFor="playerName">Dein Name:</label>
-            <input
-              type="text"
-              id="playerName"
-              value={inputPlayerName}
-              onChange={handlePlayerNameChange}
-              placeholder="Namen eingeben..."
-              className="form-control"
-            />
-          </div>
-
-          <div className="form-group">
-            <label htmlFor="roomId">Raum-ID:</label>
-            <div className="input-group">
-              <input
-                type="text"
-                id="roomId"
-                value={roomId}
-                onChange={handleRoomIdChange}
-                placeholder="z.B. ABC123"
-                className="form-control"
-              />
-            </div>
-          </div>
-
-          <button className="lobby-btn" onClick={handleJoin}>🚀 Raum beitreten</button>
-          <button className="lobby-btn" onClick={handleCreate}>🎮 Neues Spiel erstellen</button>
-        </>
-      )}
-
-      {(localError || error) && <div className="lobby-error">⚠️ {localError || error}</div>}
+  // Initiale Ansicht (kein Spiel yet)
+  return (
+    <div className="stack" style={{ width: '100%' }}>
+      <h2 style={{ margin: '0 0 8px 0', fontSize: '1.4rem' }}>Spiel erstellen oder beitreten</h2>
+      <form className="form" onSubmit={(e) => { e.preventDefault(); handleJoin(); }}>
+        <div className="field">
+          <label htmlFor="playerName">Dein Name</label>
+          <input
+            id="playerName"
+            value={inputPlayerName}
+            onChange={handlePlayerNameChange}
+            placeholder="z.B. Alex"
+            maxLength={20}
+          />
+        </div>
+        <div className="field">
+          <label htmlFor="roomId">Raum-ID (falls beitreten)</label>
+          <input
+            id="roomId"
+            value={roomId}
+            onChange={handleRoomIdChange}
+            placeholder="Z.B. ABC123"
+            maxLength={10}
+          />
+        </div>
+        <div style={{ display: 'flex', flexWrap: 'wrap', gap: 12 }}>
+          <button
+            type="button"
+            className="btn"
+            onClick={handleJoin}
+            disabled={!inputPlayerName || !roomId}
+          >
+            🚀 Beitreten
+          </button>
+          <button
+            type="button"
+            className="btn outline"
+            onClick={handleCreate}
+            disabled={!inputPlayerName}
+          >
+            🎮 Neues Spiel
+          </button>
+        </div>
+      </form>
+      {(localError || error) && <div className="alert">⚠️ {localError || error}</div>}
+      <div className="notice">💡 Tipp: Teile nach dem Erstellen einfach die Raum-ID mit deinen Freunden.</div>
     </div>
   );
 }

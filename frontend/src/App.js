@@ -4,6 +4,7 @@ import Lobby from './Lobby';
 import Game from './Game';
 import VolumeControl from './components/VolumeControl';
 import audioManager from './AudioManager';
+import './AppLayout.css';
 
 class ErrorBoundary extends React.Component {
     constructor(props) {
@@ -137,114 +138,44 @@ function App() {
 
     return (
         <ErrorBoundary>
-            <div className="App">
-                {/* VolumeControl immer sichtbar machen */}
-                <VolumeControl volume={volume} onChange={handleVolumeChange} />
-
-                <div style={{
-                    minHeight: '100vh',
-                    background: 'linear-gradient(135deg, #667eea 0%, #764ba2 100%)',
-                    padding: '20px'
-                }}>
-                    <div style={{ maxWidth: '800px', margin: '0 auto' }}>
-                        {/* App Header */}
-                        <div style={{
-                            textAlign: 'center',
-                            marginBottom: '40px',
-                            background: 'rgba(255,255,255,0.1)',
-                            padding: '30px',
-                            borderRadius: '20px',
-                            backdropFilter: 'blur(10px)',
-                            color: 'white',
-                            boxShadow: '0 8px 32px rgba(0,0,0,0.1)',
-                            position: 'relative'
-                        }}>
-                            <h1 style={{
-                                margin: '0 0 15px 0',
-                                fontSize: '42px',
-                                fontWeight: 'bold',
-                                textShadow: '3px 3px 6px rgba(0,0,0,0.3)',
-                                background: 'linear-gradient(45deg, #ffd700, #ffed4e)',
-                                WebkitBackgroundClip: 'text',
-                                WebkitTextFillColor: 'transparent',
-                                backgroundClip: 'text'
-                            }}>
-                                🎨 Don't Choose Me
-                            </h1>
-                            <p style={{
-                                margin: 0,
-                                fontSize: '18px',
-                                opacity: 0.9,
-                                fontWeight: '300'
-                            }}>
-                                Das kreative Ratespiel für Freunde und Familie
-                            </p>
-
-                            {/* Audio Indicator für Startseite */}
-                            {!inSession && (
-                                <div style={{
-                                    position: 'absolute',
-                                    top: '15px',
-                                    right: '15px',
-                                    display: 'flex',
-                                    alignItems: 'center',
-                                    gap: '8px',
-                                    background: 'rgba(255,255,255,0.1)',
-                                    padding: '6px 12px',
-                                    borderRadius: '20px',
-                                    fontSize: '12px',
-                                    opacity: 0.7
-                                }}>
-                                    🎵 Willkommensmusik
-                                </div>
-                            )}
+            <div className="app-root">
+                <div className="app-shell">
+                    <header className="app-header">
+                        <h1>🎨 Don't Choose Me</h1>
+                        <p>Das kreative Ratespiel für Freunde & Familie</p>
+                        {!inSession && (
+                            <div className="badge-music">🎵 Lobby Musik aktiv</div>
+                        )}
+                        <div style={{position:'absolute',left:12,top:12}}>
+                            <VolumeControl volume={volume} onChange={handleVolumeChange} />
                         </div>
+                    </header>
 
-                        {/* Main Content */}
-                        <div style={{
-                            background: 'rgba(255,255,255,0.1)',
-                            borderRadius: '20px',
-                            padding: '30px',
-                            backdropFilter: 'blur(10px)',
-                            boxShadow: '0 8px 32px rgba(0,0,0,0.1)',
-                            border: '1px solid rgba(255,255,255,0.2)'
-                        }}>
-                            {inSession && gamePhase !== 'waiting' ? (
-                                <Game
-                                    gameId={gameId}
-                                    playerName={playerName}
-                                    onLeaveGame={handleLeaveGame}
-                                    volume={volume}
-                                    setVolume={setVolume}
-                                />
-                            ) : (
-                                <Lobby
-                                    players={players}
-                                    playerName={playerName}
-                                    gameId={gameId}
-                                    error={error}
-                                    onJoin={handleJoin}
-                                    onStart={gameId ? handleStartGame : handleCreateGame}
-                                    onLeave={handleLeaveGame}
-                                />
-                            )}
-                        </div>
+                    <main className={`app-panel phase-${gamePhase}`}>
+                        {inSession && gamePhase !== 'waiting' ? (
+                            <Game
+                                gameId={gameId}
+                                playerName={playerName}
+                                onLeaveGame={handleLeaveGame}
+                                volume={volume}
+                                setVolume={setVolume}
+                            />
+                        ) : (
+                            <Lobby
+                                players={players}
+                                playerName={playerName}
+                                gameId={gameId}
+                                error={error}
+                                onJoin={handleJoin}
+                                onStart={gameId ? handleStartGame : handleCreateGame}
+                                onLeave={handleLeaveGame}
+                            />
+                        )}
+                    </main>
 
-                        {/* Footer */}
-                        <div style={{
-                            textAlign: 'center',
-                            marginTop: '30px',
-                            color: 'rgba(255,255,255,0.7)',
-                            fontSize: '14px'
-                        }}>
-                            <p style={{ margin: 0 }}>
-                                💡 Ein Erzähler gibt einen Hinweis zu seiner Karte<br/>
-                                🃏 Andere wählen passende Karten aus ihrer Hand<br/>
-                                🗳️ Alle raten, welche Karte vom Erzähler stammt<br/>
-                                🏆 Erste Person mit 30 Punkten gewinnt!
-                            </p>
-                        </div>
-                    </div>
+                    <footer className="app-footer">
+                        💡 Erzähler gibt einen Hinweis • 🃏 Andere legen passende Karten • 🗳️ Alle raten • 🏆 30 Punkte für den Sieg
+                    </footer>
                 </div>
             </div>
         </ErrorBoundary>
