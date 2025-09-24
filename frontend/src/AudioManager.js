@@ -1,51 +1,60 @@
-// Einfacher AudioManager für das Abspielen von Sounds
+// Einfacher AudioManager für das Abspielen von Musik und Effekten
 class AudioManager {
   constructor() {
-    this.currentAudio = null;
-    this.volume = 0.3;
-    this.isEnabled = true;
-    this.audioCache = new Map();
-    this.loadingPromises = new Map();
-    this.volume = vol;
-    if (this.currentAudio) {
+    this.currentAudio = null;          // Aktueller Musik-Track
+    this.volume = 0.3;                 // Basis-Lautstärke (0..1)
+    this.isEnabled = true;             // Globaler Mute-Schalter
+    this.audioCache = new Map();       // Cache geladener Audio-Elemente
+    this.loadingPromises = new Map();  // Verhindert doppeltes Laden
+    this.activeEffects = new Set();    // Laufende Effekt-Sounds
+  }
+
+  // Setzt globale Lautstärke (wirkt auch auf aktuellen Track)
   setVolume(volume) {
     this.volume = Math.max(0, Math.min(1, volume));
-  }
+    if (this.currentAudio) {
       this.currentAudio.volume = this.volume;
     }
+    // Effekte nicht nachträglich anpassen (absichtlich statisch)
   }
 
-  async loadAudio(filename) {
-    // Prüfen ob bereits geladen oder gerade geladen wird
-    if (this.audioCache.has(filename)) {
-      return this.audioCache.get(filename);
-    audio.volume = 0;
-    if (this.loadingPromises.has(filename)) {
-      return this.loadingPromises.get(filename);
+  setEnabled(enabled) {
+    this.isEnabled = enabled;
+    if (!enabled) {
+      this.stopTrack(150);
+      // Effekte stoppen
+      this.activeEffects.forEach(effect => {
+        try { effect.pause(); } catch (_) {}
+      });
+      this.activeEffects.clear();
     }
-      let v = 0;
-    // Audio laden
-    const loadPromise = new Promise((resolve, reject) => {
-      const audio = new Audio();
+  }
 
+  // Lädt (oder holt aus Cache) ein Audio-Element
+  async loadAudio(filename) {
+    if (this.audioCache.has(filename)) return this.audioCache.get(filename);
+    if (this.loadingPromises.has(filename)) return this.loadingPromises.get(filename);
+
+    const loadPromise = new Promise(resolve => {
+      const audio = new Audio();
       audio.addEventListener('canplaythrough', () => {
         this.audioCache.set(filename, audio);
         this.loadingPromises.delete(filename);
         resolve(audio);
-      });
-
+      }, { once: true });
       audio.addEventListener('error', (e) => {
-        console.warn(`Audio-Datei nicht gefunden: ${filename}`, e);
+        console.warn(`Audio-Datei nicht gefunden oder fehlerhaft: ${filename}`, e);
         this.loadingPromises.delete(filename);
-        resolve(null); // Null zurückgeben statt Fehler werfen
-      });
-
-      // Versuche Audio zu laden
+        resolve(null);
+      }, { once: true });
       try {
-        audio.src = `/${filename}`;
+        // Einheitliche Pfadlogik: Caller übergibt z.B. 'sounds/lobby.mp3'
+        const norm = filename.replace(/\\/g, '/');
+        audio.src = norm.startsWith('/') ? norm : '/' + norm;
         audio.preload = 'auto';
-      } catch (error) {
-        console.warn(`Fehler beim Laden von ${filename}:`, error);
+        // Browser starten erst Playback bei play()
+      } catch (err) {
+        console.warn('Fehler beim Setzen der Audio-Quelle:', err);
         resolve(null);
       }
     });
@@ -54,89 +63,127 @@ class AudioManager {
     return loadPromise;
   }
 
-  async playTrack(filename, loop = false, fadeInMs = 0) {
+  // Spielt Hintergrundmusik (ersetzt vorherigen Track)
+  async playTrack(filename, loop = true, fadeInMs = 0) {
     if (!this.isEnabled) return;
 
     try {
-      // Aktuellen Track stoppen
+      // Alten Track ggf. ausblenden
       if (this.currentAudio) {
-        this.stopTrack(100);
+        this.stopTrack(200);
       }
 
-      // Audio laden
       const audio = await this.loadAudio(filename);
-
-      // Wenn Audio nicht geladen werden konnte, stumm weitermachen
-      if (!audio) {
-        console.log(`Audio ${filename} nicht verfügbar - stumme Wiedergabe`);
-        return;
-      }
+      if (!audio) return; // Silent fallback
 
       this.currentAudio = audio;
-      audio.loop = loop;
+      audio.loop = !!loop;
+      audio.currentTime = 0;
       audio.volume = fadeInMs > 0 ? 0 : this.volume;
 
-      // Abspielen
-      await audio.play();
-
-      // Fade-in Effekt
-      if (fadeInMs > 0) {
-        this.fadeIn(audio, fadeInMs);
+      const playResult = audio.play();
+      if (playResult && typeof playResult.catch === 'function') {
+        playResult.catch(err => {
+          // Autoplay-Block o.Ä. – nicht kritisch
+          console.warn('Playback verweigert (Autoplay?):', err);
+        });
       }
-    } catch (error) {
-      console.warn(`Fehler beim Abspielen von ${filename}:`, error);
-      // Nicht als Fehler behandeln, sondern stumm weitermachen
+
+      if (fadeInMs > 0) {
+        this.fadeIn(audio, fadeInMs, this.volume);
+      }
+    } catch (e) {
+      console.warn(`Fehler beim Abspielen von Track ${filename}:`, e);
     }
   }
 
-  fadeIn(audio, duration) {
-    const steps = 20;
-    const stepVolume = this.volume / steps;
-    const stepTime = duration / steps;
-    let currentStep = 0;
+  // Spielt einen kurzen Effekt (überlappt Musik)
+  async playEffect(filename, { volumeMultiplier = 1, fadeInMs = 0, autoCleanup = true } = {}) {
+    if (!this.isEnabled) return;
+    try {
+      const audio = await this.loadAudio(filename);
+      if (!audio) return;
 
-    const fadeInterval = setInterval(() => {
-      currentStep++;
-      audio.volume = Math.min(stepVolume * currentStep, this.volume);
+      // Klon, damit gleichzeitig mehrfach gleiche Effekte spielbar sind
+      const effect = audio.cloneNode(true);
+      effect.volume = fadeInMs > 0 ? 0 : Math.min(1, this.volume * volumeMultiplier);
+      effect.currentTime = 0;
 
-      if (currentStep >= steps) {
-        clearInterval(fadeInterval);
+      this.activeEffects.add(effect);
+
+      const playResult = effect.play();
+      if (playResult && typeof playResult.catch === 'function') {
+        playResult.catch(err => console.warn('Effekt Playback verweigert:', err));
       }
-    }, stepTime);
+
+      if (fadeInMs > 0) {
+        this.fadeIn(effect, fadeInMs, Math.min(1, this.volume * volumeMultiplier));
+      }
+
+      if (autoCleanup) {
+        effect.addEventListener('ended', () => {
+          this.activeEffects.delete(effect);
+        }, { once: true });
+      }
+    } catch (e) {
+      console.warn(`Fehler beim Effekt ${filename}:`, e);
+    }
   }
 
+  // Stoppt aktuellen Track (optional mit Fade-Out)
   stopTrack(fadeOutMs = 0) {
     if (!this.currentAudio) return;
+    const audio = this.currentAudio;
 
     if (fadeOutMs > 0) {
-      this.fadeOut(this.currentAudio, fadeOutMs);
-
-      this.currentAudio.pause();
-      this.currentAudio = null;
-    }
-  }
-
-  fadeOut(audio, duration) {
-    const steps = 20;
-    const stepVolume = audio.volume / steps;
-    const stepTime = duration / steps;
-    let currentStep = 0;
-
-    const fadeInterval = setInterval(() => {
-      currentStep++;
-      audio.volume = Math.max(audio.volume - stepVolume, 0);
-
-      if (currentStep >= steps || audio.volume <= 0) {
-        clearInterval(fadeInterval);
-        audio.pause();
+      this.fadeOut(audio, fadeOutMs, () => {
+        try { audio.pause(); } catch (_) {}
         if (this.currentAudio === audio) {
           this.currentAudio = null;
         }
+      });
+    } else {
+      try { audio.pause(); } catch (_) {}
+      if (this.currentAudio === audio) {
+        this.currentAudio = null;
+      }
+    }
+  }
 
+  // Utility: Fade-In
+  fadeIn(audio, durationMs, targetVolume) {
+    const steps = 20;
+    const stepTime = durationMs / steps;
+    let current = 0;
+    const interval = setInterval(() => {
+      current++;
+      audio.volume = Math.min(targetVolume, (targetVolume / steps) * current);
+      if (current >= steps) {
+        clearInterval(interval);
+        audio.volume = targetVolume;
+      }
     }, stepTime);
   }
 
-  setEnabled(enabled) {
-    this.isEnabled = enabled;
-    if (!enabled && this.currentAudio) {
-      this.stopTrack(100);
+  // Utility: Fade-Out
+  fadeOut(audio, durationMs, onComplete) {
+    const steps = 20;
+    const stepTime = durationMs / steps;
+    const startVolume = audio.volume;
+    let current = 0;
+    const interval = setInterval(() => {
+      current++;
+      const newVolume = Math.max(0, startVolume - (startVolume / steps) * current);
+      audio.volume = newVolume;
+      if (current >= steps || newVolume <= 0.0001) {
+        clearInterval(interval);
+        audio.volume = 0;
+        if (onComplete) onComplete();
+      }
+    }, stepTime);
+  }
+}
+
+// Singleton-Instanz exportieren
+const audioManager = new AudioManager();
+export default audioManager;
