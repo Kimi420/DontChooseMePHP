@@ -84,7 +84,10 @@ body { margin:0; font-family: system-ui,-apple-system,Segoe UI,Roboto,Ubuntu,can
 .card-tile:hover { border-color:var(--color-accent); transform:translateY(-3px); box-shadow:0 8px 20px -8px rgba(0,0,0,.65); }
 .card-tile.selected { border-color:var(--color-accent); box-shadow:0 0 0 2px rgba(255,215,0,0.4),0 6px 16px -6px rgba(0,0,0,.6); }
 .card-tile.locked { filter:grayscale(.6) brightness(.7); cursor:not-allowed; }
+.card-tile.self-lock { position:relative; }
+.card-tile.self-lock::after { content:''; position:absolute; inset:0; background:linear-gradient(145deg,rgba(0,0,0,0.55),rgba(0,0,0,0.2)); }
 .card-badge { position:absolute; top:6px; left:6px; background:rgba(0,0,0,0.55); padding:4px 7px; border-radius:40px; font-size:.6rem; letter-spacing:.5px; }
+.card-badge.self-badge { background:rgba(239,68,68,0.75); }
 .card-check { position:absolute; top:6px; right:6px; background:var(--color-success); color:#fff; padding:4px 7px; font-size:.6rem; border-radius:40px; }
 
 .bottom-bar { position:sticky; bottom:0; margin-top:auto; background:linear-gradient(to top,rgba(0,0,0,.55),rgba(0,0,0,0)); padding:14px 4px calc(var(--safe-bottom) + 8px) 4px; display:flex; justify-content:center; }

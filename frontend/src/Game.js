@@ -123,14 +123,19 @@ function Game({ gameId, playerName, onLeaveGame }) {
       {mixedCards.map(cid => {
         const meta = getCardMeta(cid) || { image:'', title:'Karte '+cid };
         const isMyVote = votedCard === cid || votes.some(v => v.playerId === me?.id && v.cardId === cid);
-        const canVote = interactive && phase === 'voting' && !isStoryteller && !hasVoted;
+        const canBaseVote = interactive && phase === 'voting' && !isStoryteller && !hasVoted;
+        // Eigene eingereichte Karte identifizieren (Storyteller-Karte zählt nicht, da Erzähler nicht abstimmt)
+        const isOwnSubmission = submissions.some(s => s.cardId === cid && s.playerId === me?.id);
+        const disabledSelf = phase === 'voting' && isOwnSubmission && !isStoryteller; // darf nicht für eigene Karte stimmen
+        const canVote = canBaseVote && !disabledSelf;
         return (
           <div key={cid}
-               className={`card-tile ${isMyVote ? 'selected' : ''}`}
+               className={`card-tile ${isMyVote ? 'selected' : ''} ${disabledSelf ? 'locked self-lock' : ''}`}
                onClick={() => canVote && handleVote(cid)}
-               title={meta.title}>
+               title={disabledSelf ? 'Eigene Karte – nicht wählbar' : meta.title}>
             {meta.image && <img src={`/${meta.image}`} alt={meta.title} />}
             {isMyVote && <div className="card-check">🗳</div>}
+            {disabledSelf && <div className="card-badge self-badge">Eigene</div>}
             {phase === 'reveal' && cid === storytellerCardId && <div className="card-badge" style={{background:'rgba(255,215,0,0.75)'}}>Erzähler</div>}
           </div>
         );
@@ -233,10 +238,11 @@ function Game({ gameId, playerName, onLeaveGame }) {
     }
     if (phase === 'selectCards') {
       if (isStoryteller) {
-        return <div style={{padding:'8px 4px'}}>Warten bis alle Spieler eine Karte abgelegt haben… ({submissions.length}/{gameState.players.length -1})</div>;
+        return <div className="stack">{gameState.hint && <div className="hint-banner"><span className="label">Hinweis</span>{gameState.hint}</div>}<div style={{padding:'8px 4px'}}>Warten bis alle Spieler eine Karte abgelegt haben… ({submissions.length}/{gameState.players.length -1})</div></div>;
       }
       return (
         <div className="stack">
+          {gameState.hint && <div className="hint-banner"><span className="label">Hinweis</span>{gameState.hint}</div>}
           <div>
             <h3 style={{margin:'4px 0 8px', fontSize:'.9rem', letterSpacing:'.5px', textTransform:'uppercase'}}>Wähle eine Karte</h3>
             {renderHand()}

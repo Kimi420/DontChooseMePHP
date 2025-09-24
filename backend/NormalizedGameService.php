@@ -176,6 +176,22 @@ class NormalizedGameService {
         // Karte muss Teil der Mixed Cards sein
         $mixed = $this->mixedCardsInternal($state);
         if (!in_array($cardId, $mixed, true)) return ['success'=>false,'message'=>'Ungültige Karte'];
+        // NEU: Spieler darf nicht für eigene eingereichte Karte stimmen
+        $ownerDbId = null;
+        if ($cardId === $state['storyteller_card_id']) {
+            // Storyteller (stimmt nicht ab) wäre Besitzer – nur zur Vollständigkeit
+            $ownerDbId = $this->playerDbIdBySeat($gameId, $state['storytellerSeat']);
+        } else {
+            $stmtOwner = $this->db->prepare("SELECT game_player_id FROM g_round_submissions WHERE round_id=? AND card_id=? LIMIT 1");
+            $stmtOwner->execute([$state['round_id'], $cardId]);
+            $rowOwner = $stmtOwner->fetch();
+            if ($rowOwner) {
+                $ownerDbId = (int)$rowOwner['game_player_id'];
+            }
+        }
+        if ($ownerDbId !== null && $ownerDbId === (int)$player['db_id']) {
+            return ['success'=>false,'message'=>'Du kannst nicht für deine eigene Karte stimmen'];
+        }
         $this->db->beginTransaction();
         try {
             $stmt = $this->db->prepare("INSERT INTO g_round_votes (round_id, voter_player_id, card_id) VALUES (?,?,?)");
