@@ -64,6 +64,11 @@ class NormalizedGameService {
     }
 
     public function startGame(string $gameId): array {
+        // Bereits gestartet?
+        $state = $this->internalState($gameId);
+        if ($state && $state['phase'] !== 'waiting') {
+            return ['success' => false, 'message' => 'Spiel läuft bereits'];
+        }
         // Mindest-Spieler prüfen
         $players = $this->fetchPlayers($gameId);
         if (count($players) < 3) {
@@ -246,7 +251,7 @@ class NormalizedGameService {
                 'score' => (int)$p['score'],
                 'isStoryteller' => (bool)$p['isStoryteller'],
                 'hasSelectedCard' => $hasSelected,
-                'cards' => $playerName === $p['name'] ? $cards : $cards // Karten aktuell für alle sichtbar; später evtl. verbergen
+                'cards' => ($playerName === $p['name']) ? $cards : []
             ];
         }
         $cardData = $this->loadCardData();

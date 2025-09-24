@@ -3,26 +3,26 @@
 error_reporting(0);
 ini_set('display_errors', 0);
 
-// Output-Buffering starten
-ob_start();
-
-// Wenn es eine OPTIONS-Anfrage ist (CORS-Preflight), beenden wir hier
-if ($_SERVER['REQUEST_METHOD'] === 'OPTIONS') {
-    header('Access-Control-Allow-Origin: *');
-    header('Access-Control-Allow-Methods: POST, GET, OPTIONS');
-    header('Access-Control-Allow-Headers: Content-Type');
-    http_response_code(200);
-    exit(0);
-}
-
 header('Access-Control-Allow-Origin: *');
-header('Access-Control-Allow-Methods: POST, GET, OPTIONS');
+header('Access-Control-Allow-Methods: GET, POST, OPTIONS');
 header('Access-Control-Allow-Headers: Content-Type');
 header('Content-Type: application/json');
 
-require_once 'GameManager.php';
+// Wenn es eine OPTIONS-Anfrage ist (CORS-Preflight), beenden wir hier
+if ($_SERVER['REQUEST_METHOD'] === 'OPTIONS') {
+    http_response_code(200);
+    exit();
+}
 
-$gameManager = new GameManager();
+require_once __DIR__ . '/NormalizedGameService.php';
+$service = new NormalizedGameService();
+
+function readJson(): array {
+    $raw = file_get_contents('php://input');
+    if ($raw === false) return [];
+    $data = json_decode($raw, true);
+    return is_array($data) ? $data : [];
+}
 
 if ($_SERVER['REQUEST_METHOD'] === 'GET') {
     if (!isset($_GET['gameId'])) {
@@ -31,66 +31,52 @@ if ($_SERVER['REQUEST_METHOD'] === 'GET') {
     }
     $gameId = $_GET['gameId'];
     $playerName = isset($_GET['playerName']) ? $_GET['playerName'] : null;
-    $result = $gameManager->getGameState($gameId, $playerName);
-    ob_clean();
-    echo json_encode($result);
+    $res = $service->getGameState($gameId, $playerName);
+    echo json_encode($res);
     exit;
 }
 
 if ($_SERVER['REQUEST_METHOD'] === 'POST') {
-    ob_clean();
-    $rawBody = file_get_contents('php://input');
-    if ($rawBody === false) {
-        echo json_encode(['success' => false, 'message' => 'Request-Body konnte nicht gelesen werden']);
-        exit;
-    }
-    $data = json_decode($rawBody, true);
-    if (json_last_error() !== JSON_ERROR_NONE) {
-        echo json_encode(['success' => false, 'message' => 'Ungültiges JSON: ' . json_last_error_msg()]);
-        exit;
-    }
+    $data = readJson();
     if (!$data || !isset($data['gameId']) || !isset($data['action'])) {
         echo json_encode(['success' => false, 'message' => 'Ungültige Anfrage']);
         exit;
     }
-
     $gameId = $data['gameId'];
     $action = $data['action'];
-
     switch ($action) {
         case 'start':
-            $result = $gameManager->startGame($gameId);
+            $res = $service->startGame($gameId);
             break;
         case 'giveHint':
-            if (!isset($data['playerName'], $data['cardId'], $data['hint'])) {
-                echo json_encode(['success' => false, 'message' => 'Fehlende Parameter']);
-                exit;
+            if (!isset($data['playerName'],$data['cardId'],$data['hint'])) {
+                $res = ['success'=>false,'message'=>'Fehlende Parameter'];
+                break;
             }
-            $result = $gameManager->giveHint($gameId, $data['playerName'], $data['cardId'], $data['hint']);
+            $res = $service->giveHint($gameId, $data['playerName'], (int)$data['cardId'], $data['hint']);
             break;
         case 'chooseCard':
-            if (!isset($data['playerName'], $data['cardId'])) {
-                echo json_encode(['success' => false, 'message' => 'Fehlende Parameter']);
-                exit;
+            if (!isset($data['playerName'],$data['cardId'])) {
+                $res = ['success'=>false,'message'=>'Fehlende Parameter'];
+                break;
             }
-            $result = $gameManager->chooseCard($gameId, $data['playerName'], $data['cardId']);
+            $res = $service->chooseCard($gameId, $data['playerName'], (int)$data['cardId']);
             break;
         case 'vote':
-            if (!isset($data['playerName'], $data['cardId'])) {
-                echo json_encode(['success' => false, 'message' => 'Fehlende Parameter']);
-                exit;
+            if (!isset($data['playerName'],$data['cardId'])) {
+                $res = ['success'=>false,'message'=>'Fehlende Parameter'];
+                break;
             }
-            $result = $gameManager->vote($gameId, $data['playerName'], $data['cardId']);
+            $res = $service->vote($gameId, $data['playerName'], (int)$data['cardId']);
             break;
         case 'nextRound':
-            $result = $gameManager->nextRound($gameId);
+            $res = $service->nextRound($gameId);
             break;
         default:
-            $result = ['success' => false, 'message' => 'Unbekannte Aktion'];
+            $res = ['success'=>false,'message'=>'Unbekannte Aktion'];
     }
-
-    echo json_encode($result);
+    echo json_encode($res);
     exit;
 }
 
-echo json_encode(['success' => false, 'message' => 'Methode nicht unterstützt']);
+echo json_encode(['success'=>false,'message'=>'Methode nicht unterstützt']);
