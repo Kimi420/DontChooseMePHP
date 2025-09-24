@@ -1,12 +1,32 @@
-RewriteEngine On
+# Statisches Ausliefern + SPA Fallback + Backend Weiterleitung
+<IfModule mod_rewrite.c>
+  RewriteEngine On
 
-# 1. Static-Ordner-Umleitung (damit /static/... zu /frontend/build/static/... führt)
-RewriteRule ^static/(.*)$ frontend/build/static/$1 [L]
+  # Bereits existierende Dateien / Verzeichnisse direkt ausliefern
+  RewriteCond %{REQUEST_FILENAME} -f [OR]
+  RewriteCond %{REQUEST_FILENAME} -d
+  RewriteRule ^ - [L]
 
-# 2. Datei oder Verzeichnis existiert → ausliefern
-RewriteCond %{REQUEST_FILENAME} -f [OR]
-RewriteCond %{REQUEST_FILENAME} -d
-RewriteRule ^ - [L]
+  # Backend-Endpunkte direkt durchreichen (PHP-Dateien in backend/)
+  RewriteRule ^backend/(.*)$ backend/$1 [L]
 
-# 3. Alles andere an index.html der SPA weiterleiten
-RewriteRule ^ frontend/build/index.html [L]
+  # Alles andere an index.php (SPA Router)
+  RewriteRule ^ index.php [L]
+</IfModule>
+
+# Gzip / Brotli Hints (optional – tatsächliche Komprimierung Serverseitig aktivieren)
+<IfModule mod_deflate.c>
+  AddOutputFilterByType DEFLATE text/html text/css application/javascript application/json image/svg+xml
+</IfModule>
+
+# Caching für statische Assets
+<IfModule mod_expires.c>
+  ExpiresActive On
+  ExpiresByType text/css "access plus 7 days"
+  ExpiresByType application/javascript "access plus 7 days"
+  ExpiresByType image/jpeg "access plus 30 days"
+  ExpiresByType image/png "access plus 30 days"
+  ExpiresByType image/svg+xml "access plus 30 days"
+  ExpiresByType audio/mpeg "access plus 30 days"
+</IfModule>
+

@@ -1,6 +1,8 @@
 import config from './config.json';
 
-const API_URL = config.API_URL;
+const RAW_API_URL = config.API_URL || '';
+// Trailing Slash entfernen für saubere URL-Konstruktion
+const API_URL = RAW_API_URL.replace(/\/+$/, '');
 
 // Hilfsfunktion zum sicheren Parsen von JSON-Antworten
 async function parseJSONResponse(response) {
