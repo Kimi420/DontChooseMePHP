@@ -97,14 +97,50 @@ class GameManager {
             $gameState = $game->getState();
             $stateJson = json_encode($gameState);
 
-            $stmt = $this->db->prepare("
-                INSERT INTO games (id, state) 
-                VALUES (?, ?) 
-                ON DUPLICATE KEY UPDATE state = ?, updated_at = CURRENT_TIMESTAMP
-            ");
-            $stmt->execute([$game->gameId, $stateJson, $stateJson]);
+            $stmt = $this->db->prepare(
+                "INSERT INTO games (id, state, phase, player_count) 
+                VALUES (?, ?, ?, ?) 
+                ON DUPLICATE KEY UPDATE state = VALUES(state), phase = VALUES(phase), player_count = VALUES(player_count), updated_at = CURRENT_TIMESTAMP"
+            );
+            $stmt->execute([$game->gameId, $stateJson, $game->phase, count($game->players)]);
+
+            // Spieler synchronisieren
+            $this->syncPlayersTable($game);
         } catch (Exception $e) {
             error_log('Fehler beim Speichern des Spiels: ' . $e->getMessage());
+        }
+    }
+
+    /**
+     * Synchronisiert die Spielerinformationen in die players-Tabelle
+     */
+    private function syncPlayersTable(Game $game): void {
+        try {
+            if (empty($game->players)) return;
+
+            $sql = "INSERT INTO players (game_id, player_id, name, cards, score, is_storyteller, has_selected_card)
+                    VALUES (:game_id, :player_id, :name, :cards, :score, :is_storyteller, :has_selected_card)
+                    ON DUPLICATE KEY UPDATE
+                      name = VALUES(name),
+                      cards = VALUES(cards),
+                      score = VALUES(score),
+                      is_storyteller = VALUES(is_storyteller),
+                      has_selected_card = VALUES(has_selected_card)";
+            $stmt = $this->db->prepare($sql);
+
+            foreach ($game->players as $p) {
+                $stmt->execute([
+                    ':game_id' => $game->gameId,
+                    ':player_id' => $p->id,
+                    ':name' => $p->name,
+                    ':cards' => json_encode($p->cards ?? []),
+                    ':score' => $p->score ?? 0,
+                    ':is_storyteller' => $p->isStoryteller ? 1 : 0,
+                    ':has_selected_card' => $p->hasSelectedCard ? 1 : 0,
+                ]);
+            }
+        } catch (Exception $e) {
+            error_log('Fehler bei Spieler-Sync: ' . $e->getMessage());
         }
     }
 
