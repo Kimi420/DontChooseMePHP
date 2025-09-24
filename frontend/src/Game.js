@@ -95,11 +95,11 @@ function Game({ gameId, playerName, onLeaveGame }) {
   };
 
   /* --- Karten Grids --- */
-  const renderHand = () => (
+  const renderHand = (opts = {}) => (
     <div className="hand-grid">
       {myHand.map(cid => {
         const meta = getCardMeta(cid) || { image: '', title: 'Karte '+cid };
-        const selectable = (phase === 'storytelling' && isStoryteller) || (phase === 'selectCards' && !isStoryteller && !hasSubmitted);
+        const selectable = opts.forceLocked ? false : (phase === 'storytelling' && isStoryteller) || (phase === 'selectCards' && !isStoryteller && !hasSubmitted);
         const isSel = selectedCard === cid;
         return (
           <div key={cid}
@@ -107,7 +107,7 @@ function Game({ gameId, playerName, onLeaveGame }) {
                onClick={() => selectable && handleSelectHandCard(cid)}
                title={meta.title}>
             {meta.image && <img src={`/${meta.image}`} alt={meta.title} />}
-            {isSel && <div className="card-check">✔</div>}
+            {isSel && selectable && <div className="card-check">✔</div>}
             {hasSubmitted && !isStoryteller && isSel && <div className="card-check">✔</div>}
           </div>
         );
@@ -118,15 +118,15 @@ function Game({ gameId, playerName, onLeaveGame }) {
   const mixedCards = (phase === 'voting' || phase === 'reveal') ? (gameState.mixedCards || []) : [];
   const storytellerCardId = gameState.storytellerCard;
 
-  const renderMixed = () => (
+  const renderMixed = (interactive = true) => (
     <div className="mixed-grid">
       {mixedCards.map(cid => {
         const meta = getCardMeta(cid) || { image:'', title:'Karte '+cid };
         const isMyVote = votedCard === cid || votes.some(v => v.playerId === me?.id && v.cardId === cid);
-        const canVote = phase === 'voting' && !isStoryteller && !hasVoted;
+        const canVote = interactive && phase === 'voting' && !isStoryteller && !hasVoted;
         return (
           <div key={cid}
-               className={`card-tile ${isMyVote ? 'selected' : ''} ${(!canVote && !isMyVote) ? '' : ''}`}
+               className={`card-tile ${isMyVote ? 'selected' : ''}`}
                onClick={() => canVote && handleVote(cid)}
                title={meta.title}>
             {meta.image && <img src={`/${meta.image}`} alt={meta.title} />}
@@ -197,6 +197,9 @@ function Game({ gameId, playerName, onLeaveGame }) {
       if (isStoryteller) {
         return (
           <div className="stack">
+            {gameState.hint && (
+              <div className="hint-banner"><span className="label">Hinweis</span>{gameState.hint}</div>
+            )}
             <div className="hint-form">
               <input
                 value={hintInput}
@@ -214,7 +217,19 @@ function Game({ gameId, playerName, onLeaveGame }) {
           </div>
         );
       }
-      return <div style={{padding:'12px 4px'}}>Der Erzähler bereitet einen Hinweis vor…</div>;
+      // Nicht-Erzähler sehen ihre (gesperrte) Hand bereits
+      return (
+        <div className="stack">
+          {gameState.hint && (
+            <div className="hint-banner"><span className="label">Hinweis</span>{gameState.hint}</div>
+          )}
+          {!gameState.hint && <div className="notice">Der Erzähler formuliert einen Hinweis…</div>}
+          <div>
+            <h3 style={{margin:'4px 0 8px', fontSize:'.9rem', letterSpacing:'.5px', textTransform:'uppercase'}}>Deine Hand (Vorschau)</h3>
+            {renderHand({forceLocked:true})}
+          </div>
+        </div>
+      );
     }
     if (phase === 'selectCards') {
       if (isStoryteller) {
@@ -233,23 +248,63 @@ function Game({ gameId, playerName, onLeaveGame }) {
     if (phase === 'voting') {
       return (
         <div className="stack">
+          {gameState.hint && <div className="hint-banner"><span className="label">Hinweis</span>{gameState.hint}</div>}
           <h3 style={{margin:'0 0 4px', fontSize:'.9rem', letterSpacing:'.5px', textTransform:'uppercase'}}>Abstimmung</h3>
-          {renderMixed()}
+          {renderMixed(true)}
           {hasVoted && <div className="notice">🗳 Stimme abgegeben</div>}
         </div>
       );
     }
     if (phase === 'reveal') {
       const meta = storytellerCardId ? getCardMeta(storytellerCardId) : null;
+
+      // Karte -> Owner bestimmen
+      const storytellerSeat = gameState.storytellerIndex + 1;
+      const ownerMap = {};
+      if (storytellerCardId) ownerMap[storytellerCardId] = storytellerSeat;
+      submissions.forEach(s => { ownerMap[s.cardId] = s.playerId; });
+
+      // Card -> Voter Liste
+      const voteMap = {};
+      votes.forEach(v => {
+        if (!voteMap[v.cardId]) voteMap[v.cardId] = [];
+        voteMap[v.cardId].push(v.playerId);
+      });
+
+      // Helfer: Name zu ID
+      const nameById = Object.fromEntries(gameState.players.map(p => [p.id, p.name]));
+
       return (
         <div className="stack">
-            <h3 style={{margin:'0 0 4px', fontSize:'.9rem', letterSpacing:'.5px', textTransform:'uppercase'}}>Auflösung</h3>
-            <div className="mixed-grid">
-              {renderMixed()}
-            </div>
-            {storytellerCardId && (
-              <div style={{marginTop:4, fontSize:'.8rem'}}>Erzählerkarte war: <strong>{meta?.title || storytellerCardId}</strong></div>
-            )}
+          {gameState.hint && <div className="hint-banner"><span className="label">Hinweis</span>{gameState.hint}</div>}
+          <h3 style={{margin:'0 0 4px', fontSize:'.9rem', letterSpacing:'.5px', textTransform:'uppercase'}}>Auflösung</h3>
+          {renderMixed(false)}
+          {storytellerCardId && (
+            <div style={{marginTop:4, fontSize:'.8rem'}}>Erzählerkarte war: <strong>{meta?.title || storytellerCardId}</strong></div>
+          )}
+          <div className="reveal-details">
+            {mixedCards.map(cid => {
+              const ownerId = ownerMap[cid];
+              const ownerName = ownerId ? nameById[ownerId] : 'Unbekannt';
+              const voterIds = voteMap[cid] || [];
+              const isStoryCard = cid === storytellerCardId;
+              return (
+                <div key={cid} className="reveal-card-row">
+                  <div style={{display:'flex',justifyContent:'space-between',alignItems:'center'}}>
+                    <strong style={{fontSize:'.85rem'}}>{getCardMeta(cid)?.title || ('Karte '+cid)}</strong>
+                    <div className="meta">
+                      <span className={`reveal-chip owner`}>👤 {ownerName}{isStoryCard ? ' (Erzähler)' : ''}</span>
+                      {isStoryCard && <span className="reveal-chip story">Hinweis-Ziel</span>}
+                      {voterIds.length === 0 && <span className="reveal-chip">Keine Stimmen</span>}
+                      {voterIds.length > 0 && (
+                        <span className={`reveal-chip ${isStoryCard ? 'good':''}`}>🗳 {voterIds.map(id=>nameById[id]).join(', ')}</span>
+                      )}
+                    </div>
+                  </div>
+                </div>
+              );
+            })}
+          </div>
         </div>
       );
     }
@@ -265,7 +320,7 @@ function Game({ gameId, playerName, onLeaveGame }) {
     if (phase === 'selectCards' && !isStoryteller && !hasSubmitted) {
       actions.push(<button key="info" className="btn outline" disabled>Wähle oben eine Karte</button>);
     }
-    if (phase === 'reveal') {
+    if (phase === 'reveal' && isStoryteller) {
       actions.push(<button key="next" className="btn" disabled={sending} onClick={handleNextRound}>➡️ Nächste Runde</button>);
     }
     actions.push(<button key="leave" className="btn danger" onClick={onLeaveGame}>🚪 Verlassen</button>);
