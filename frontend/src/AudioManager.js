@@ -6,11 +6,11 @@ class AudioManager {
     this.isEnabled = true;
     this.audioCache = new Map();
     this.loadingPromises = new Map();
-  }
-
+    this.volume = vol;
+    if (this.currentAudio) {
   setVolume(volume) {
     this.volume = Math.max(0, Math.min(1, volume));
-    if (this.currentAudio) {
+  }
       this.currentAudio.volume = this.volume;
     }
   }
@@ -19,11 +19,11 @@ class AudioManager {
     // Prüfen ob bereits geladen oder gerade geladen wird
     if (this.audioCache.has(filename)) {
       return this.audioCache.get(filename);
-    }
+    audio.volume = 0;
     if (this.loadingPromises.has(filename)) {
       return this.loadingPromises.get(filename);
     }
-
+      let v = 0;
     // Audio laden
     const loadPromise = new Promise((resolve, reject) => {
       const audio = new Audio();
@@ -110,7 +110,7 @@ class AudioManager {
 
     if (fadeOutMs > 0) {
       this.fadeOut(this.currentAudio, fadeOutMs);
-    } else {
+
       this.currentAudio.pause();
       this.currentAudio = null;
     }
@@ -132,7 +132,7 @@ class AudioManager {
         if (this.currentAudio === audio) {
           this.currentAudio = null;
         }
-      }
+
     }, stepTime);
   }
 
@@ -140,10 +140,3 @@ class AudioManager {
     this.isEnabled = enabled;
     if (!enabled && this.currentAudio) {
       this.stopTrack(100);
-    }
-  }
-}
-
-// Singleton-Instanz exportieren
-const audioManager = new AudioManager();
-export default audioManager;

@@ -23,7 +23,6 @@ class Player {
     public bool $isStoryteller;
     public bool $hasSelectedCard;
     public array $cards = []; // Fehlende Property hinzugefügt
-
     public function __construct(
         int $id,
         string $name,
@@ -40,6 +39,7 @@ class Player {
         $this->isActive = $isActive;
         $this->isStoryteller = $isStoryteller;
         $this->hasSelectedCard = $hasSelectedCard;
+    }
         $this->cards = []; // Initialisierung der cards-Array
     }
 
@@ -60,5 +60,3 @@ class Player {
 
     public function getCards(): array {
         return $this->cards;
-    }
-}

@@ -1,13 +1,13 @@
 import React, { useState } from 'react';
 import './LobbyStyle.css';
 
-function Lobby({ players, gameId, error, onJoin, onStart, onLeave }) {
-  const [playerName, setPlayerName] = useState('');
+function Lobby({ players, playerName, gameId, error, onJoin, onStart, onLeave }) {
+  const [inputPlayerName, setInputPlayerName] = useState('');
   const [roomId, setRoomId] = useState(gameId || '');
   const [localError, setLocalError] = useState(error || '');
 
   const handlePlayerNameChange = (e) => {
-    setPlayerName(e.target.value);
+    setInputPlayerName(e.target.value);
     setLocalError('');
   };
 
@@ -17,7 +17,7 @@ function Lobby({ players, gameId, error, onJoin, onStart, onLeave }) {
   };
 
   const handleJoin = () => {
-    if (!playerName) {
+    if (!inputPlayerName) {
       setLocalError('Bitte einen Namen eingeben!');
       return;
     }
@@ -27,16 +27,16 @@ function Lobby({ players, gameId, error, onJoin, onStart, onLeave }) {
       return;
     }
 
-    onJoin(roomId, playerName);
+    onJoin(roomId, inputPlayerName);
   };
 
   const handleCreate = () => {
-    if (!playerName) {
+    if (!inputPlayerName) {
       setLocalError('Bitte einen Namen eingeben!');
       return;
     }
 
-    onStart(playerName);
+    onStart(inputPlayerName);
   };
 
   return (
@@ -59,7 +59,14 @@ function Lobby({ players, gameId, error, onJoin, onStart, onLeave }) {
               ))}
             </div>
           </div>
-          <button className="lobby-btn" onClick={onStart} disabled={players.length < 3}>🎮 Spiel starten!</button>
+          <button
+            className="lobby-btn"
+            onClick={() => onStart()}
+            disabled={players.length < 3 || (players[0] && players[0].name !== playerName)}
+            title={players.length < 3 ? 'Mindestens 3 Spieler nötig' : (players[0] && players[0].name !== playerName ? 'Nur der Raumleiter kann starten' : 'Spiel starten')}
+          >
+            🎮 Spiel starten!
+          </button>
           <button className="lobby-btn" onClick={onLeave}>🚪 Verlassen</button>
         </>
       ) : (
@@ -72,7 +79,7 @@ function Lobby({ players, gameId, error, onJoin, onStart, onLeave }) {
             <input
               type="text"
               id="playerName"
-              value={playerName}
+              value={inputPlayerName}
               onChange={handlePlayerNameChange}
               placeholder="Namen eingeben..."
               className="form-control"

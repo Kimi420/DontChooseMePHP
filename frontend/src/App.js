@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { createGame, joinGame, getGameState } from './api';
+import { createGame, joinGame, getGameState, startGame } from './api';
 import Lobby from './Lobby';
 import Game from './Game';
 import VolumeControl from './components/VolumeControl';
@@ -32,10 +32,11 @@ class ErrorBoundary extends React.Component {
 function App() {
     const [gameId, setGameId] = useState('');
     const [playerName, setPlayerName] = useState('');
-    const [isInGame, setIsInGame] = useState(false);
+    const [inSession, setInSession] = useState(false); // in Lobby oder Spiel
     const [players, setPlayers] = useState([]);
     const [error, setError] = useState('');
-    const [volume, setVolume] = useState(0.3); // Reduzierte Standard-Lautstärke
+    const [volume, setVolume] = useState(0.3);
+    const [gamePhase, setGamePhase] = useState('waiting');
 
     // Initialisiere AudioManager beim App-Start
     useEffect(() => {
@@ -56,16 +57,21 @@ function App() {
     }, [volume]);
 
     useEffect(() => {
+        let interval;
         if (gameId) {
-            getGameState(gameId).then(state => {
-                if (state.success) {
-                    setPlayers(state.players || []);
-                }
-            }).catch(err => {
-                console.error("Fehler beim Abrufen des Spielstatus:", err);
-            });
+            const fetchState = () => {
+                getGameState(gameId, playerName).then(state => {
+                    if (state && state.success) {
+                        setPlayers(state.players || []);
+                        setGamePhase(state.phase || 'waiting');
+                    }
+                }).catch(err => console.error('Fehler beim Abrufen des Spielstatus:', err));
+            };
+            fetchState();
+            interval = setInterval(fetchState, 1500);
         }
-    }, [gameId, isInGame]);
+        return () => interval && clearInterval(interval);
+    }, [gameId, playerName]);
 
     const handleJoin = async (roomId, name) => {
         if (!roomId || !name) {
@@ -77,7 +83,7 @@ function App() {
             if (res.success) {
                 setGameId(roomId);
                 setPlayerName(name);
-                setIsInGame(true);
+                setInSession(true);
                 setError('');
             } else {
                 setError(res.message || 'Beitritt fehlgeschlagen');
@@ -88,7 +94,7 @@ function App() {
         }
     };
 
-    const handleStart = async (name) => {
+    const handleCreateGame = async (name) => {
         if (!name) {
             setError('Bitte Namen eingeben!');
             return;
@@ -98,7 +104,7 @@ function App() {
             if (res.success) {
                 setGameId(res.gameId);
                 setPlayerName(name);
-                setIsInGame(true);
+                setInSession(true); // Bleibt in Lobby bis Start
                 setError('');
             } else {
                 setError(res.message || 'Start fehlgeschlagen');
@@ -109,11 +115,19 @@ function App() {
         }
     };
 
+    const handleStartGame = async () => {
+        if (!gameId) return;
+        const res = await startGame(gameId);
+        if (!res.success) {
+            setError(res.message || 'Spielstart fehlgeschlagen');
+        }
+    };
+
     const handleLeaveGame = () => {
-        setIsInGame(false);
+        setInSession(false);
         setGameId('');
         setPlayers([]);
-        // Wechsel zurück zur Lobby-Musik
+        setGamePhase('waiting');
         audioManager.playTrack('sounds/lobby.mp3', true, 1000);
     };
 
@@ -167,7 +181,7 @@ function App() {
                             </p>
 
                             {/* Audio Indicator für Startseite */}
-                            {!isInGame && (
+                            {!inSession && (
                                 <div style={{
                                     position: 'absolute',
                                     top: '15px',
@@ -195,7 +209,7 @@ function App() {
                             boxShadow: '0 8px 32px rgba(0,0,0,0.1)',
                             border: '1px solid rgba(255,255,255,0.2)'
                         }}>
-                            {isInGame ? (
+                            {inSession && gamePhase !== 'waiting' ? (
                                 <Game
                                     gameId={gameId}
                                     playerName={playerName}
@@ -206,10 +220,11 @@ function App() {
                             ) : (
                                 <Lobby
                                     players={players}
+                                    playerName={playerName}
                                     gameId={gameId}
                                     error={error}
                                     onJoin={handleJoin}
-                                    onStart={handleStart}
+                                    onStart={gameId ? handleStartGame : handleCreateGame}
                                     onLeave={handleLeaveGame}
                                 />
                             )}

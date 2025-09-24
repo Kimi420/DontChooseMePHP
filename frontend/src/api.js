@@ -1,211 +1,104 @@
 import config from './config.json';
 
-// API-Client für die Kommunikation mit dem PHP-Backend
-const API_URL = config.API_URL; // Passe ggf. den Pfad an
+const API_URL = config.API_URL;
 
 // Hilfsfunktion zum sicheren Parsen von JSON-Antworten
 async function parseJSONResponse(response) {
+  let text;
   try {
-    // Prüfen, ob die Antwort erfolgreich war
-    if (!response.ok) {
-      // Bei 500er Fehlern versuchen wir trotzdem, die Antwort zu lesen
-      if (response.status === 500) {
-        try {
-          const text = await response.text();
-          console.error('Server-Fehler (500):', text);
-          return {
-            success: false,
-            message: `Server-Fehler: ${text}`,
-            players: [], // Fallback für Frontend
-            gameId: '',
-            phase: 'waiting',
-            state: 'waiting'
-          };
-        } catch {
-          return {
-            success: false,
-            message: 'Server-Fehler (500): Keine Details verfügbar',
-            players: [],
-            gameId: '',
-            phase: 'waiting',
-            state: 'waiting'
-          };
-        }
-      }
-      throw new Error(`HTTP error! Status: ${response.status}`);
+    text = await response.text();
+  } catch (e) {
+    return { success: false, message: 'Antwort konnte nicht gelesen werden' };
+  }
+
+  if (!text) {
+    return { success: false, message: 'Leere Antwort vom Server' };
+  }
+
+  // Versuchen direkt zu parsen
+  try {
+    return JSON.parse(text);
+  } catch (e) {
+    // Falls HTML Noise enthalten ist, letzten JSON-Block extrahieren
+    const start = text.lastIndexOf('{');
+    const end = text.lastIndexOf('}');
+    if (start !== -1 && end !== -1 && end > start) {
+      try {
+        const possible = text.substring(start, end + 1);
+        return JSON.parse(possible);
+      } catch (_) { /* ignorieren */ }
     }
-
-    // Text der Antwort lesen
-    const text = await response.text();
-
-    // Wenn der Text leer ist, geben wir ein leeres Objekt zurück
-    if (!text || text.trim() === '') {
-      console.warn('Leere Antwort vom Server erhalten');
-      return {
-        success: false,
-        message: 'Leere Antwort vom Server',
-        players: [],
-        gameId: '',
-        phase: 'waiting',
-        state: 'waiting'
-      };
-    }
-
-    // Versuchen, den Text als JSON zu parsen
-    try {
-      const parsed = JSON.parse(text);
-
-      // Sicherstellen, dass kritische Felder vorhanden sind
-      if (parsed && typeof parsed === 'object') {
-        parsed.players = parsed.players || [];
-        parsed.gameId = parsed.gameId || '';
-        parsed.phase = parsed.phase || 'waiting';
-        parsed.state = parsed.state || 'waiting';
-      }
-
-      return parsed;
-    } catch (jsonError) {
-      console.error('JSON-Parsing-Fehler:', jsonError);
-      console.error('Erhaltener Text:', text);
-
-      // Versuche PHP-Error-Nachrichten zu extrahieren
-      if (text.includes('<br />') && text.includes('{')) {
-        const jsonStart = text.lastIndexOf('{');
-        const jsonEnd = text.lastIndexOf('}') + 1;
-        if (jsonStart !== -1 && jsonEnd > jsonStart) {
-          try {
-            const cleanJson = text.substring(jsonStart, jsonEnd);
-            const parsed = JSON.parse(cleanJson);
-            parsed.players = parsed.players || [];
-            parsed.gameId = parsed.gameId || '';
-            parsed.phase = parsed.phase || 'waiting';
-            parsed.state = parsed.state || 'waiting';
-            console.warn('JSON aus gemischter Antwort extrahiert:', parsed);
-            return parsed;
-          } catch {
-            // Fallback bleibt unten
-          }
-        }
-      }
-
-      return {
-        success: false,
-        message: 'Ungültiges JSON vom Server erhalten',
-        players: [],
-        gameId: '',
-        phase: 'waiting',
-        state: 'waiting'
-      };
-    }
-  } catch (error) {
-    console.error('API-Anfragefehler:', error);
-    return {
-      success: false,
-      message: `API-Fehler: ${error.message}`,
-      players: [],
-      gameId: '',
-      phase: 'waiting',
-      state: 'waiting'
-    };
+    return { success: false, message: 'Ungültige Server-Antwort', raw: text };
   }
 }
 
 export async function createGame(playerName) {
-  try {
-    const res = await fetch(`${API_URL}/Lobby.php`, {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json'
-      },
-      mode: 'cors',
-      body: JSON.stringify({ playerName })
-    });
-    return parseJSONResponse(res);
-  } catch (error) {
-    console.error('Fehler beim Erstellen des Spiels:', error);
-    return { success: false, message: 'Verbindungsfehler: Bitte überprüfe deine Internetverbindung' };
-  }
+  const res = await fetch(`${API_URL}/Lobby.php`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ playerName })
+  });
+  return parseJSONResponse(res);
 }
 
 export async function joinGame(gameId, playerName) {
-  try {
-    const res = await fetch(`${API_URL}/Lobby.php`, {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json'
-      },
-      mode: 'cors',
-      body: JSON.stringify({ gameId, playerName })
-    });
-    return parseJSONResponse(res);
-  } catch (error) {
-    console.error('Fehler beim Beitreten des Spiels:', error);
-    return { success: false, message: 'Verbindungsfehler: Bitte überprüfe deine Internetverbindung' };
-  }
+  const res = await fetch(`${API_URL}/Lobby.php`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ gameId, playerName })
+  });
+  return parseJSONResponse(res);
 }
 
-export async function getGameState(gameId) {
-  try {
-    const res = await fetch(`${API_URL}/Game_api.php?gameId=${gameId}`);
-    return parseJSONResponse(res);
-  } catch (error) {
-    console.error('Fehler beim Abrufen des Spielstatus:', error);
-    return { success: false, message: 'Verbindungsfehler: Bitte überprüfe deine Internetverbindung' };
-  }
+export async function getGameState(gameId, playerName) {
+  const url = new URL(`${API_URL}/Game_api.php`);
+  url.searchParams.set('gameId', gameId);
+  if (playerName) url.searchParams.set('playerName', playerName);
+  const res = await fetch(url.toString(), { method: 'GET' });
+  return parseJSONResponse(res);
+}
+
+export async function startGame(gameId) {
+  const res = await fetch(`${API_URL}/Game_api.php`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ gameId, action: 'start' })
+  });
+  return parseJSONResponse(res);
 }
 
 export async function giveHint(gameId, playerName, cardId, hint) {
-  try {
-    const res = await fetch(`${API_URL}/Game_api.php`, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ gameId, playerName, cardId, hint, action: 'giveHint' })
-    });
-    return parseJSONResponse(res);
-  } catch (error) {
-    console.error('Fehler beim Senden des Hinweises:', error);
-    return { success: false, message: 'Verbindungsfehler: Bitte überprüfe deine Internetverbindung' };
-  }
+  const res = await fetch(`${API_URL}/Game_api.php`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ gameId, action: 'giveHint', playerName, cardId, hint })
+  });
+  return parseJSONResponse(res);
 }
 
 export async function chooseCard(gameId, playerName, cardId) {
-  try {
-    const res = await fetch(`${API_URL}/Game_api.php`, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ gameId, playerName, cardId, action: 'chooseCard' })
-    });
-    return parseJSONResponse(res);
-  } catch (error) {
-    console.error('Fehler beim Auswählen einer Karte:', error);
-    return { success: false, message: 'Verbindungsfehler: Bitte überprüfe deine Internetverbindung' };
-  }
+  const res = await fetch(`${API_URL}/Game_api.php`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ gameId, action: 'chooseCard', playerName, cardId })
+  });
+  return parseJSONResponse(res);
 }
 
 export async function vote(gameId, playerName, cardId) {
-  try {
-    const res = await fetch(`${API_URL}/Game_api.php`, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ gameId, playerName, cardId, action: 'vote' })
-    });
-    return parseJSONResponse(res);
-  } catch (error) {
-    console.error('Fehler beim Abstimmen:', error);
-    return { success: false, message: 'Verbindungsfehler: Bitte überprüfe deine Internetverbindung' };
-  }
+  const res = await fetch(`${API_URL}/Game_api.php`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ gameId, action: 'vote', playerName, cardId })
+  });
+  return parseJSONResponse(res);
 }
 
 export async function nextRound(gameId) {
-  try {
-    const res = await fetch(`${API_URL}/Game_api.php`, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ gameId, action: 'nextRound' })
-    });
-    return parseJSONResponse(res);
-  } catch (error) {
-    console.error('Fehler beim Starten der nächsten Runde:', error);
-    return { success: false, message: 'Verbindungsfehler: Bitte überprüfe deine Internetverbindung' };
-  }
+  const res = await fetch(`${API_URL}/Game_api.php`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ gameId, action: 'nextRound' })
+  });
+  return parseJSONResponse(res);
 }
