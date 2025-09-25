@@ -148,6 +148,23 @@ class Database {
             INDEX idx_game_consumed (game_id, consumed)
         )");
 
+        // Deck-Tabelle für Kartendecks
+        $pdo->exec("CREATE TABLE IF NOT EXISTS g_decks (
+            id INT AUTO_INCREMENT PRIMARY KEY,
+            name VARCHAR(100) NOT NULL,
+            description TEXT DEFAULT NULL
+        )");
+
+        // Karten-Tabelle für Deckkarten
+        $pdo->exec("CREATE TABLE IF NOT EXISTS g_cards (
+            id INT AUTO_INCREMENT PRIMARY KEY,
+            deck_id INT NOT NULL,
+            title VARCHAR(255) NOT NULL,
+            image VARCHAR(255) NOT NULL,
+            FOREIGN KEY (deck_id) REFERENCES g_decks(id) ON DELETE CASCADE,
+            INDEX idx_deck (deck_id)
+        )");
+
         // Deck-Zuordnung zu Spiel ergänzen
         $pdo->exec("ALTER TABLE g_games ADD COLUMN deck_id INT NULL AFTER id");
         // Optional: Fremdschlüssel setzen (nur falls noch nicht vorhanden)
