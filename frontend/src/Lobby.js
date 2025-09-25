@@ -3,7 +3,7 @@ import './LobbyStyle.css';
 import './AppLayout.css';
 import { fetchDecks, createGame } from './api';
 
-function Lobby({ players, playerName, gameId, error, onJoin, onStart, onLeave }) {
+function Lobby({ players, playerName, gameId, error, onJoin, onStart, onLeave, onCreated }) {
   const [inputPlayerName, setInputPlayerName] = useState('');
   const [roomId, setRoomId] = useState(gameId || '');
   const [localError, setLocalError] = useState(error || '');
@@ -56,10 +56,12 @@ function Lobby({ players, playerName, gameId, error, onJoin, onStart, onLeave })
       return;
     }
     setLocalError('');
-    // createGame direkt aufrufen, damit Deck übergeben wird
     const res = await createGame(inputPlayerName, selectedDeck);
     if (res.success && res.gameId) {
-      onJoin(res.gameId, inputPlayerName);
+      // Kein onJoin mehr (würde Name-Kollision erzeugen) – stattdessen eigener Callback
+      if (typeof onCreated === 'function') {
+        onCreated(res.gameId, inputPlayerName);
+      }
     } else {
       setLocalError(res.message || 'Fehler beim Erstellen des Spiels');
     }
@@ -187,5 +189,7 @@ function Lobby({ players, playerName, gameId, error, onJoin, onStart, onLeave })
     </div>
   );
 }
+
+Lobby.defaultProps = { onCreated: () => {} };
 
 export default Lobby;
