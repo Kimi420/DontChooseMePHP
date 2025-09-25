@@ -64,6 +64,31 @@ class NormalizedGameService {
         ];
     }
 
+    // NEU: Spieler wieder ins Spiel einloggen ohne neuen Eintrag anzulegen
+    public function rejoinGame(string $gameId, string $playerName): array {
+        $state = $this->internalState($gameId);
+        if (!$state) {
+            return ['success'=>false,'message'=>'Spiel nicht gefunden'];
+        }
+        $player = $this->playerByName($gameId, $playerName);
+        if (!$player) {
+            return ['success'=>false,'message'=>'Spielername nicht im Spiel'];
+        }
+        $hand = $this->playerHand($player['db_id']);
+        return [
+            'success'=>true,
+            'gameId'=>$gameId,
+            'player'=>[
+                'id'=>$player['seat'],
+                'name'=>$player['name'],
+                'score'=>(int)$player['score'],
+                'isStoryteller'=>(bool)$player['isStoryteller']
+            ],
+            'cards'=>$hand,
+            'phase'=>$state['phase']
+        ];
+    }
+
     public function startGame(string $gameId): array {
         // Bereits gestartet?
         $state = $this->internalState($gameId);
@@ -291,13 +316,21 @@ class NormalizedGameService {
                     $hasSelected = $this->submissionExists($state['round_id'], $p['db_id']);
                 }
             }
+            // Karten nur für den eigenen Spieler sichtbar – jetzt case-insensitive Vergleich
+            $showCards = false;
+            if ($playerName !== null) {
+                // strcasecmp gibt 0 bei Gleichheit ohne Beachtung der Groß-/Kleinschreibung
+                if (strcasecmp($playerName, (string)$p['name']) === 0) {
+                    $showCards = true;
+                }
+            }
             $playerDtos[] = [
                 'id' => $p['seat'],
                 'name' => $p['name'],
                 'score' => (int)$p['score'],
                 'isStoryteller' => (bool)$p['isStoryteller'],
                 'hasSelectedCard' => $hasSelected,
-                'cards' => ($playerName === $p['name']) ? $cards : []
+                'cards' => $showCards ? $cards : []
             ];
         }
         // Deck Meta
@@ -305,7 +338,8 @@ class NormalizedGameService {
         $stmtD = $this->db->prepare("SELECT g.deck_id, d.name FROM g_games g LEFT JOIN g_decks d ON d.id=g.deck_id WHERE g.id=?");
         $stmtD->execute([$gameId]);
         if ($rowD = $stmtD->fetch()) { $deckId = $rowD['deck_id']; $deckName = $rowD['name'] ?? null; }
-        $cardData = $this->loadCardData();
+        // Nur Karten des zum Spiel gehörenden Decks laden (vorher alle Decks)
+        $cardData = $this->loadCardData($gameId);
         // Rundenscores der aktuellen Runde laden (falls vorhanden)
         $roundScores = [];
         if ($state['round_id']) {
