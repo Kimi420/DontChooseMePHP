@@ -40,13 +40,27 @@ function App() {
     const [gamePhase, setGamePhase] = useState('waiting');
     const [deckId, setDeckId] = useState(null);
     const [deckName, setDeckName] = useState(null);
+    // Neu: Autoplay-Status
+    const [autoplayBlocked, setAutoplayBlocked] = useState(false);
+    const [resuming, setResuming] = useState(false);
 
     // Initialisiere AudioManager beim App-Start
     useEffect(() => {
         audioManager.setVolume(volume);
-        // Autoplay-sicher: statt direktem playTrack jetzt requestBackgroundMusic
         audioManager.requestBackgroundMusic('sounds/lobby.mp3', true, 2000);
         return () => { audioManager.stopTrack(500); };
+    }, []);
+
+    // Listener für Statusänderungen (Autoplay)
+    useEffect(() => {
+        const listener = ({ autoplayBlocked: blocked }) => {
+            setAutoplayBlocked(!!blocked);
+            if (!blocked) setResuming(false);
+        };
+        audioManager.addStatusListener(listener);
+        // Initial übernehmen, falls schon gesetzt
+        setAutoplayBlocked(!!audioManager.autoplayBlocked);
+        return () => audioManager.removeStatusListener(listener);
     }, []);
 
     // Volume änderungen an AudioManager weiterleiten
@@ -203,6 +217,22 @@ function App() {
                         <div style={{position:'absolute',left:12,top:12}}>
                             <VolumeControl volume={volume} onChange={handleVolumeChange} />
                         </div>
+                        {autoplayBlocked && (
+                          <div style={{position:'absolute',right:12,top:12}}>
+                            <button
+                              onClick={() => { if (!resuming) { setResuming(true); audioManager.attemptResume(); } }}
+                              disabled={resuming}
+                              style={{
+                                background:'#ffcc00',
+                                border:'1px solid #aa9500',
+                                padding:'6px 12px',
+                                borderRadius:6,
+                                cursor: resuming ? 'default' : 'pointer',
+                                fontWeight:600
+                              }}
+                            >{resuming ? 'Aktiviere…' : 'Musik aktivieren'}</button>
+                          </div>
+                        )}
                     </header>
 
                     <main className={`app-panel phase-${gamePhase}`}>

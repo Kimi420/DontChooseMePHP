@@ -11,7 +11,16 @@ class AudioManager {
     this._pendingTrack = null; // {filename, loop, fadeInMs}
     this._playAttempted = false;
     this._fallbackPrefixes = ['/', '/frontend/build/']; // versucht beide Basen
+    // Neu: Autoplay-Status
+    this.autoplayBlocked = false;
+    this._statusListeners = new Set();
   }
+
+  // Listener-Verwaltung für Statusänderungen (z.B. autoplayBlocked)
+  addStatusListener(fn) { if (fn && typeof fn === 'function') this._statusListeners.add(fn); }
+  removeStatusListener(fn) { this._statusListeners.delete(fn); }
+  _notifyStatus() { const payload = { autoplayBlocked: this.autoplayBlocked, enabled: this.isEnabled }; this._statusListeners.forEach(fn => { try { fn(payload); } catch(_){} }); }
+  _setAutoplayBlocked(flag) { if (this.autoplayBlocked !== flag) { this.autoplayBlocked = flag; this._notifyStatus(); } }
 
   // Setzt globale Lautstärke (wirkt auch auf aktuellen Track)
   setVolume(volume) {
@@ -32,6 +41,7 @@ class AudioManager {
       });
       this.activeEffects.clear();
     }
+    this._notifyStatus();
   }
 
   // Lädt (oder holt aus Cache) ein Audio-Element
@@ -89,17 +99,20 @@ class AudioManager {
     const { filename, loop, fadeInMs } = this._pendingTrack;
     try {
       await this.playTrack(filename, loop, fadeInMs, {internal:true});
-      // Erfolg -> Pending löschen
       this._pendingTrack = null;
+      this._setAutoplayBlocked(false);
     } catch (e) {
       if (fromUserGesture) {
-        // Falls sogar bei User Gesture fehlschlägt -> deaktivieren
         console.warn('Playback trotz User-Geste fehlgeschlagen:', e);
-      } else {
-        // Wird bei nächster User-Geste erneut versucht
-        // Kein Logspam nötig
       }
+      // Bleibt pending für nächsten Versuch
     }
+  }
+
+  // Öffentliche Methode um nach User-Klick erneut zu versuchen
+  attemptResume() {
+    if (!this.autoplayBlocked && !this._pendingTrack) return Promise.resolve(false);
+    return this._tryPlayPending(true) || Promise.resolve(true);
   }
 
   // Spielt Hintergrundmusik (ersetzt vorherigen Track)
@@ -116,14 +129,18 @@ class AudioManager {
       audio.currentTime = 0;
       audio.volume = fadeInMs > 0 ? 0 : this.volume;
       const playResult = audio.play();
-      if (playResult && typeof playResult.catch === 'function') {
-        return playResult.catch(err => {
-          // Autoplay blockiert -> Pending belassen
-          if (!opts.internal) console.warn('Playback verweigert (Autoplay). Warte auf User-Geste…');
-          // currentAudio zurücksetzen, weil nicht wirklich spielend
+      if (playResult && typeof playResult.then === 'function') {
+        playResult.then(() => {
+          this._setAutoplayBlocked(false);
+        }).catch(err => {
+          if (err && (err.name === 'NotAllowedError' || /play\(\) failed|Autoplay/i.test(err.message||''))) {
+            this._setAutoplayBlocked(true);
+          }
+          if (!opts.internal) console.warn('Playback verweigert (Autoplay oder anderer Fehler). Warte auf User-Geste…');
           this.currentAudio = null;
           throw err;
         });
+        return playResult; // Kette nach außen
       }
     } catch (e) {
       if (!opts.internal) console.warn('Fehler beim Starten des Tracks:', e);
