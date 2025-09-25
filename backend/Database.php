@@ -33,6 +33,9 @@ class Database {
                 
             } catch (PDOException $e) {
                 error_log("Datenbankverbindung fehlgeschlagen: " . $e->getMessage());
+                if (defined('APP_DEBUG') && APP_DEBUG) {
+                    throw new Exception("Datenbankverbindung fehlgeschlagen: " . $e->getMessage());
+                }
                 throw new Exception("Datenbankverbindung fehlgeschlagen");
             }
         }
@@ -165,13 +168,29 @@ class Database {
             INDEX idx_deck (deck_id)
         )");
 
-        // Deck-Zuordnung zu Spiel ergänzen
-        $pdo->exec("ALTER TABLE g_games ADD COLUMN deck_id INT NULL AFTER id");
-        // Optional: Fremdschlüssel setzen (nur falls noch nicht vorhanden)
+        // Deck-Zuordnung zu Spiel ergänzen (nur einmal versuchen)
+        try {
+            $pdo->exec("ALTER TABLE g_games ADD COLUMN deck_id INT NULL AFTER id");
+        } catch (PDOException $e) {
+            // Duplicate column -> ignorieren
+        }
         try {
             $pdo->exec("ALTER TABLE g_games ADD CONSTRAINT fk_games_deck FOREIGN KEY (deck_id) REFERENCES g_decks(id) ON DELETE SET NULL");
         } catch (PDOException $e) {
-            // Fehler ignorieren, falls Constraint schon existiert
+            // Bereits vorhanden -> ignorieren
+        }
+
+        // Verifikation: existiert g_decks wirklich?
+        try {
+            $chk = $pdo->query("SHOW TABLES LIKE 'g_decks'");
+            if ($chk->rowCount() === 0) {
+                error_log('[DB] Tabelle g_decks wurde nicht erstellt (fehlende Rechte?)');
+                if (defined('APP_DEBUG') && APP_DEBUG) {
+                    throw new Exception('Tabelle g_decks fehlt – evtl. fehlen CREATE-Rechte');
+                }
+            }
+        } catch (Throwable $e) {
+            error_log('[DB] Verifikationsfehler g_decks: '.$e->getMessage());
         }
 
         // Automatischer Import entfernt! Import jetzt nur noch manuell per import_cards.php ausführen.
