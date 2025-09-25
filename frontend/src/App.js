@@ -44,14 +44,9 @@ function App() {
     // Initialisiere AudioManager beim App-Start
     useEffect(() => {
         audioManager.setVolume(volume);
-
-        // Auto-start Lobby-Musik mit reduzierter Lautstärke
-        audioManager.playTrack('sounds/lobby.mp3', true, 2000);
-
-        // Cleanup bei App-Beendigung
-        return () => {
-            audioManager.stopTrack(500);
-        };
+        // Autoplay-sicher: statt direktem playTrack jetzt requestBackgroundMusic
+        audioManager.requestBackgroundMusic('sounds/lobby.mp3', true, 2000);
+        return () => { audioManager.stopTrack(500); };
     }, []);
 
     // Volume änderungen an AudioManager weiterleiten
@@ -187,7 +182,7 @@ function App() {
         setPlayers([]);
         setGamePhase('waiting');
         setDeckId(null); setDeckName(null);
-        audioManager.playTrack('sounds/lobby.mp3', true, 1000);
+        audioManager.requestBackgroundMusic('sounds/lobby.mp3', true, 1000);
         clearSession();
     };
 

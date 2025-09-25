@@ -1,12 +1,16 @@
 // Einfacher AudioManager für das Abspielen von Musik und Effekten
 class AudioManager {
   constructor() {
-    this.currentAudio = null;          // Aktueller Musik-Track
-    this.volume = 0.3;                 // Basis-Lautstärke (0..1)
-    this.isEnabled = true;             // Globaler Mute-Schalter
-    this.audioCache = new Map();       // Cache geladener Audio-Elemente
-    this.loadingPromises = new Map();  // Verhindert doppeltes Laden
-    this.activeEffects = new Set();    // Laufende Effekt-Sounds
+    this.currentAudio = null;
+    this.volume = 0.3;
+    this.isEnabled = true;
+    this.audioCache = new Map();
+    this.loadingPromises = new Map();
+    this.activeEffects = new Set();
+    this._unlockBound = false;
+    this._pendingTrack = null; // {filename, loop, fadeInMs}
+    this._playAttempted = false;
+    this._fallbackPrefixes = ['/', '/frontend/build/']; // versucht beide Basen
   }
 
   // Setzt globale Lautstärke (wirkt auch auf aktuellen Track)
@@ -32,68 +36,101 @@ class AudioManager {
 
   // Lädt (oder holt aus Cache) ein Audio-Element
   async loadAudio(filename) {
-    if (this.audioCache.has(filename)) return this.audioCache.get(filename);
-    if (this.loadingPromises.has(filename)) return this.loadingPromises.get(filename);
-
+    const normName = filename.replace(/\\/g,'/').replace(/^\//,'');
+    const candidates = this._fallbackPrefixes.map(p => p.replace(/\/$/,'') + '/' + normName);
+    // Falls Root bereits enthalten war, sicherstellen dass es ganz vorne steht
+    if (filename.startsWith('/')) candidates.unshift(filename);
+    let lastError = null;
+    for (const src of candidates) {
+      const audio = await this._loadSingle(src).catch(e=>{ lastError=e; return null; });
+      if (audio) return audio; // erster Treffer
+    }
+    if (lastError) console.warn('Audio konnte nicht geladen werden:', normName, lastError);
+    return null;
+  }
+  async _loadSingle(src) {
+    if (this.audioCache.has(src)) return this.audioCache.get(src);
+    if (this.loadingPromises.has(src)) return this.loadingPromises.get(src);
     const loadPromise = new Promise(resolve => {
       const audio = new Audio();
+      let done=false;
+      const finish = (result) => { if (done) return; done=true; resolve(result); };
       audio.addEventListener('canplaythrough', () => {
-        this.audioCache.set(filename, audio);
-        this.loadingPromises.delete(filename);
-        resolve(audio);
-      }, { once: true });
-      audio.addEventListener('error', (e) => {
-        console.warn(`Audio-Datei nicht gefunden oder fehlerhaft: ${filename}`, e);
-        this.loadingPromises.delete(filename);
-        resolve(null);
-      }, { once: true });
-      try {
-        // Einheitliche Pfadlogik: Caller übergibt z.B. 'sounds/lobby.mp3'
-        const norm = filename.replace(/\\/g, '/');
-        audio.src = norm.startsWith('/') ? norm : '/' + norm;
-        audio.preload = 'auto';
-        // Browser starten erst Playback bei play()
-      } catch (err) {
-        console.warn('Fehler beim Setzen der Audio-Quelle:', err);
-        resolve(null);
-      }
+        this.audioCache.set(src, audio); this.loadingPromises.delete(src); finish(audio);
+      }, { once:true });
+      audio.addEventListener('error', () => { this.loadingPromises.delete(src); finish(null); }, { once:true });
+      audio.preload='auto';
+      audio.src = src;
     });
-
-    this.loadingPromises.set(filename, loadPromise);
+    this.loadingPromises.set(src, loadPromise);
     return loadPromise;
   }
 
-  // Spielt Hintergrundmusik (ersetzt vorherigen Track)
-  async playTrack(filename, loop = true, fadeInMs = 0) {
-    if (!this.isEnabled) return;
+  requestBackgroundMusic(filename, loop=true, fadeInMs=0) {
+    // Sofort versuchen
+    this.ensureAutoplayUnlock();
+    this._pendingTrack = { filename, loop, fadeInMs };
+    this._tryPlayPending();
+  }
 
+  ensureAutoplayUnlock() {
+    if (this._unlockBound) return;
+    const unlockHandler = () => {
+      this._tryPlayPending(true);
+    };
+    ['pointerdown','click','keydown','touchstart'].forEach(ev => {
+      window.addEventListener(ev, unlockHandler, { passive:true });
+    });
+    this._unlockBound = true;
+  }
+
+  async _tryPlayPending(fromUserGesture=false) {
+    if (!this._pendingTrack || !this.isEnabled) return;
+    const { filename, loop, fadeInMs } = this._pendingTrack;
     try {
-      // Alten Track ggf. ausblenden
-      if (this.currentAudio) {
-        this.stopTrack(200);
+      await this.playTrack(filename, loop, fadeInMs, {internal:true});
+      // Erfolg -> Pending löschen
+      this._pendingTrack = null;
+    } catch (e) {
+      if (fromUserGesture) {
+        // Falls sogar bei User Gesture fehlschlägt -> deaktivieren
+        console.warn('Playback trotz User-Geste fehlgeschlagen:', e);
+      } else {
+        // Wird bei nächster User-Geste erneut versucht
+        // Kein Logspam nötig
       }
+    }
+  }
 
+  // Spielt Hintergrundmusik (ersetzt vorherigen Track)
+  async playTrack(filename, loop = true, fadeInMs = 0, opts={internal:false}) {
+    if (!this.isEnabled) return;
+    // Wenn nicht aus internem Autoplay-Aufruf und ein anderer Pending-Track gesetzt ist -> überschreiben
+    if (!opts.internal) this._pendingTrack = { filename, loop, fadeInMs };
+    try {
+      if (this.currentAudio) this.stopTrack(200);
       const audio = await this.loadAudio(filename);
-      if (!audio) return; // Silent fallback
-
+      if (!audio) throw new Error('Audio nicht geladen');
       this.currentAudio = audio;
       audio.loop = !!loop;
       audio.currentTime = 0;
       audio.volume = fadeInMs > 0 ? 0 : this.volume;
-
       const playResult = audio.play();
       if (playResult && typeof playResult.catch === 'function') {
-        playResult.catch(err => {
-          // Autoplay-Block o.Ä. – nicht kritisch
-          console.warn('Playback verweigert (Autoplay?):', err);
+        return playResult.catch(err => {
+          // Autoplay blockiert -> Pending belassen
+          if (!opts.internal) console.warn('Playback verweigert (Autoplay). Warte auf User-Geste…');
+          // currentAudio zurücksetzen, weil nicht wirklich spielend
+          this.currentAudio = null;
+          throw err;
         });
       }
-
-      if (fadeInMs > 0) {
-        this.fadeIn(audio, fadeInMs, this.volume);
-      }
     } catch (e) {
-      console.warn(`Fehler beim Abspielen von Track ${filename}:`, e);
+      if (!opts.internal) console.warn('Fehler beim Starten des Tracks:', e);
+      throw e;
+    }
+    if (fadeInMs > 0 && this.currentAudio) {
+      this.fadeIn(this.currentAudio, fadeInMs, this.volume);
     }
   }
 
