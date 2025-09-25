@@ -51,10 +51,19 @@ export async function createGame(playerName, deckId = null) {
 }
 
 export async function joinGame(gameId, playerName) {
-  const res = await fetch(`${API_URL}/Lobby.php`, {
+  const res = await fetch(`${API_URL}/Game_api.php`, {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({ gameId, playerName })
+    body: JSON.stringify({ action: 'join', gameId, playerName })
+  });
+  return parseJSONResponse(res);
+}
+
+export async function rejoinGame(gameId, playerName) {
+  const res = await fetch(`${API_URL}/Game_api.php`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ action: 'rejoin', gameId, playerName })
   });
   return parseJSONResponse(res);
 }

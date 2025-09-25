@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { createGame, joinGame, getGameState, startGame } from './api';
+import { createGame, joinGame, getGameState, startGame, rejoinGame } from './api';
 import Lobby from './Lobby';
 import Game from './Game';
 import VolumeControl from './components/VolumeControl';
@@ -78,18 +78,61 @@ function App() {
         return () => interval && clearInterval(interval);
     }, [gameId, playerName]);
 
+    // Auto-Rejoin beim Laden
+    useEffect(() => {
+        try {
+            const raw = localStorage.getItem('dcm_session');
+            if (raw) {
+                const saved = JSON.parse(raw);
+                if (saved.gameId && saved.playerName) {
+                    rejoinGame(saved.gameId, saved.playerName).then(r => {
+                        if (r && r.success) {
+                            setGameId(saved.gameId);
+                            setPlayerName(saved.playerName);
+                            setInSession(true);
+                            if (r.phase) setGamePhase(r.phase);
+                        } else {
+                            // Ungültig -> löschen
+                            localStorage.removeItem('dcm_session');
+                        }
+                    }).catch(()=>{});
+                }
+            }
+        } catch(e) { /* ignore */ }
+    }, []);
+
+    const persistSession = (gid, name) => {
+        try { localStorage.setItem('dcm_session', JSON.stringify({ gameId: gid, playerName: name })); } catch(_){}
+    };
+    const clearSession = () => { try { localStorage.removeItem('dcm_session'); } catch(_){} };
+
     const handleJoin = async (roomId, name) => {
         if (!roomId || !name) {
             setError('Bitte Raum-ID und Namen eingeben!');
             return;
         }
         try {
+            // Erst versuchen zu rejoinen (falls bereits registriert)
+            const attempt = await rejoinGame(roomId, name);
+            if (attempt && attempt.success) {
+                setGameId(roomId);
+                setPlayerName(name);
+                setInSession(true);
+                if (attempt.phase) setGamePhase(attempt.phase);
+                setError('');
+                persistSession(roomId, name);
+                return;
+            }
+            // Regulärer Join
             const res = await joinGame(roomId, name);
             if (res.success) {
                 setGameId(roomId);
                 setPlayerName(name);
                 setInSession(true);
                 setError('');
+                persistSession(roomId, name);
+                // Sofort Zustand abrufen um Phase (laufendes Spiel) schneller zu sehen
+                getGameState(roomId, name).then(s => { if (s && s.success && s.phase) setGamePhase(s.phase); });
             } else {
                 setError(res.message || 'Beitritt fehlgeschlagen');
             }
@@ -111,6 +154,7 @@ function App() {
                 setPlayerName(name);
                 setInSession(true); // Bleibt in Lobby bis Start
                 setError('');
+                persistSession(res.gameId, name);
             } else {
                 setError(res.message || 'Start fehlgeschlagen');
             }
@@ -134,6 +178,7 @@ function App() {
         setInSession(true);
         setDeckId(null); setDeckName(null);
         setError('');
+        persistSession(newGameId, name);
     };
 
     const handleLeaveGame = () => {
@@ -143,6 +188,7 @@ function App() {
         setGamePhase('waiting');
         setDeckId(null); setDeckName(null);
         audioManager.playTrack('sounds/lobby.mp3', true, 1000);
+        clearSession();
     };
 
     const handleVolumeChange = (newVolume) => {

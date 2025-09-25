@@ -205,6 +205,7 @@ function Lobby({ players, playerName, gameId, error, onJoin, onStart, onLeave, o
       </form>
       {(localError || error) && <div className="alert">⚠️ {localError || error}</div>}
       <div className="notice">💡 Tipp: Teile nach dem Erstellen einfach die Raum-ID mit deinen Freunden.</div>
+      <div className="notice" style={{marginTop:6}}>🔄 Rejoin: Wenn du neu lädst, gib einfach denselben Namen & Raum-ID ein und klicke auf Beitreten – du wirst automatisch wieder verbunden.</div>
     </div>
   );
 }

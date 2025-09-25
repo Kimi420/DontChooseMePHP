@@ -39,29 +39,45 @@ class NormalizedGameService {
     }
 
     public function joinGame(string $gameId, string $playerName): array {
-        // Prüfen ob Spiel existiert
-        $stmt = $this->db->prepare("SELECT id FROM g_games WHERE id=?");
+        // Prüfen ob Spiel existiert und Phase holen
+        $stmt = $this->db->prepare("SELECT phase FROM g_games WHERE id=?");
         $stmt->execute([$gameId]);
-        if (!$stmt->fetch()) {
+        $rowGame = $stmt->fetch();
+        if (!$rowGame) {
             return ['success' => false, 'message' => 'Spiel nicht gefunden'];
         }
+        $gamePhase = $rowGame['phase'];
         // Name schon vergeben?
         $stmt = $this->db->prepare("SELECT 1 FROM g_players WHERE game_id=? AND name=?");
         $stmt->execute([$gameId, $playerName]);
         if ($stmt->fetch()) {
             return ['success' => false, 'message' => 'Name bereits vergeben'];
         }
-        // Höchsten seat bestimmen
+        // Nächsten seat bestimmen
         $stmt = $this->db->prepare("SELECT COALESCE(MAX(seat),0)+1 AS nextSeat FROM g_players WHERE game_id=?");
         $stmt->execute([$gameId]);
         $nextSeat = (int)$stmt->fetch()['nextSeat'];
-        $stmt = $this->db->prepare("INSERT INTO g_players (game_id, seat, name) VALUES (?,?,?)");
-        $stmt->execute([$gameId, $nextSeat, $playerName]);
-        return [
-            'success' => true,
-            'gameId' => $gameId,
-            'player' => ['id' => $nextSeat, 'name' => $playerName]
-        ];
+        $this->db->beginTransaction();
+        try {
+            $stmt = $this->db->prepare("INSERT INTO g_players (game_id, seat, name) VALUES (?,?,?)");
+            $stmt->execute([$gameId, $nextSeat, $playerName]);
+            $newPlayerDbId = (int)$this->db->lastInsertId();
+            // Falls Spiel schon läuft -> sofort Hand auffüllen
+            if ($gamePhase !== 'waiting') {
+                // Spieler direkt Karten ziehen (falls Deck existiert)
+                $this->drawCards($gameId, $newPlayerDbId, $this->HAND_SIZE);
+            }
+            $this->db->commit();
+            return [
+                'success' => true,
+                'gameId' => $gameId,
+                'player' => ['id' => $nextSeat, 'name' => $playerName]
+            ];
+        } catch (Throwable $e) {
+            $this->db->rollBack();
+            error_log('joinGame error: '. $e->getMessage());
+            return ['success'=>false,'message'=>'Beitritt fehlgeschlagen'];
+        }
     }
 
     // NEU: Spieler wieder ins Spiel einloggen ohne neuen Eintrag anzulegen
