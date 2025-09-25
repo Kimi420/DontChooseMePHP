@@ -11,7 +11,9 @@ function Lobby({ players, playerName, gameId, error, onJoin, onStart, onLeave, o
   const [selectedDeck, setSelectedDeck] = useState(null);
   const [loadingDecks, setLoadingDecks] = useState(false);
 
+  // Decks erst laden, wenn ein Spiel existiert (gameId gesetzt)
   useEffect(() => {
+    if (!gameId) return; // nur in Lobby laden
     setLoadingDecks(true);
     fetchDecks().then(res => {
       if (res.success && Array.isArray(res.decks)) {
@@ -20,7 +22,7 @@ function Lobby({ players, playerName, gameId, error, onJoin, onStart, onLeave, o
       }
       setLoadingDecks(false);
     });
-  }, []);
+  }, [gameId]);
 
   const handlePlayerNameChange = (e) => {
     setInputPlayerName(e.target.value);
@@ -51,14 +53,9 @@ function Lobby({ players, playerName, gameId, error, onJoin, onStart, onLeave, o
       setLocalError('Bitte einen Namen eingeben!');
       return;
     }
-    if (!selectedDeck) {
-      setLocalError('Bitte ein Kartendeck auswählen!');
-      return;
-    }
     setLocalError('');
-    const res = await createGame(inputPlayerName, selectedDeck);
+    const res = await createGame(inputPlayerName); // ohne Deck
     if (res.success && res.gameId) {
-      // Kein onJoin mehr (würde Name-Kollision erzeugen) – stattdessen eigener Callback
       if (typeof onCreated === 'function') {
         onCreated(res.gameId, inputPlayerName);
       }
@@ -188,8 +185,8 @@ function Lobby({ players, playerName, gameId, error, onJoin, onStart, onLeave, o
           />
         </div>
         <div className="field">
-          <label htmlFor="deckSelect">Kartendeck (wird später gewählt)</label>
-          <input id="deckSelect" disabled value={decks.length? 'Wird in Lobby gewählt' : 'Noch keine Decks'} />
+          <label htmlFor="deckSelect">Kartendeck</label>
+          <input id="deckSelect" disabled value="Wird nach Erstellung in der Lobby gewählt" />
         </div>
         <div style={{ display: 'flex', flexWrap: 'wrap', gap: 12 }}>
           <button
@@ -204,7 +201,7 @@ function Lobby({ players, playerName, gameId, error, onJoin, onStart, onLeave, o
             type="button"
             className="btn outline"
             onClick={handleCreate}
-            disabled={!inputPlayerName || !selectedDeck}
+            disabled={!inputPlayerName}
           >
             🎮 Neues Spiel
           </button>
