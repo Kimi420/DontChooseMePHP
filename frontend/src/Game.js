@@ -1,6 +1,7 @@
 import React, { useEffect, useState, useCallback } from 'react';
 import { getGameState, giveHint, chooseCard, vote, nextRound, resetMatch } from './api';
 import './AppLayout.css';
+import audioManager from './AudioManager';
 
 const SOUND_PATH = 'frontend/sounds/';
 
@@ -12,6 +13,7 @@ function Game({ gameId, playerName, onLeaveGame }) {
   const [error, setError] = useState('');
   const [lastPhase, setLastPhase] = useState(null);
   const [votedCard, setVotedCard] = useState(null);
+  const lastMusicRef = React.useRef(null);
 
   const fetchState = useCallback(() => {
     getGameState(gameId, playerName).then(state => {
@@ -40,6 +42,28 @@ function Game({ gameId, playerName, onLeaveGame }) {
     }
     setLastPhase(gameState.phase);
   }, [gameState, lastPhase]);
+
+  useEffect(() => {
+    if (!gameState) return;
+    const p = gameState.phase;
+    let desiredKey = 'lobby';
+    let track = 'sounds/lobby.mp3';
+    if (p === 'storytelling') { desiredKey = 'storyteller'; track = 'sounds/storyteller.mp3'; }
+    else if (p === 'voting') { desiredKey = 'voting'; track = 'sounds/voting.mp3'; }
+    // Für andere Phasen (selectCards, reveal, finished) wieder Lobby-Musik
+    if (lastMusicRef.current === desiredKey) return; // nichts ändern
+    if (desiredKey === 'lobby') {
+      audioManager.requestBackgroundMusic(track, true, 800);
+    } else {
+      audioManager.playTrack(track, true, 600).catch(() => {
+        // Fallback falls "voting.mp3" nicht existiert und z.B. "vote.mp3" vorhanden ist
+        if (desiredKey === 'voting') {
+          audioManager.playTrack('sounds/vote.mp3', true, 600).catch(()=>{});
+        }
+      });
+    }
+    lastMusicRef.current = desiredKey;
+  }, [gameState?.phase]);
 
   if (!gameState) return <div style={{padding:20}}>Spielstatus wird geladen...</div>;
 
