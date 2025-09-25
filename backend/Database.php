@@ -173,6 +173,15 @@ class Database {
         } catch (PDOException $e) {
             // Fehler ignorieren, falls Constraint schon existiert
         }
+
+        // Automatischer Import von cards.json beim ersten Start (nur falls g_decks leer)
+        $stmt = $pdo->query("SELECT COUNT(*) AS c FROM g_decks");
+        $row = $stmt->fetch();
+        if ($row && (int)$row['c'] === 0) {
+            if (file_exists(__DIR__ . '/import_cards.php')) {
+                include __DIR__ . '/import_cards.php';
+            }
+        }
     }
 
     /**
