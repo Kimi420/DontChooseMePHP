@@ -12,3 +12,4 @@ config/database.php
 # Backup-Dateien
 *.bak
 *~
+/frontend/public/images/
