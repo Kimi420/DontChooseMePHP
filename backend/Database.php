@@ -174,22 +174,16 @@ class Database {
             // Fehler ignorieren, falls Constraint schon existiert
         }
 
-        // Automatischer Import von cards.json beim ersten Start (nur falls g_decks leer)
-        $stmt = $pdo->query("SELECT COUNT(*) AS c FROM g_decks");
-        $row = $stmt->fetch();
-        if ($row && (int)$row['c'] === 0) {
-            if (file_exists(__DIR__ . '/import_cards.php')) {
-                include __DIR__ . '/import_cards.php';
-            }
-        }
+        // Automatischer Import entfernt! Import jetzt nur noch manuell per import_cards.php ausführen.
     }
 
     /**
      * Bereinigt alte Spiele (älter als 24 Stunden)
      */
     public static function cleanupOldGames(): void {
-        // Legacy-Funktion deaktiviert – alte Tabelle `games` existiert nicht mehr.
-        return;
+        $pdo = self::getConnection();
+        // Löscht alle Spiele, die älter als 24h sind (inkl. aller abhängigen Daten)
+        $pdo->exec("DELETE FROM g_games WHERE created_at < (NOW() - INTERVAL 1 DAY)");
     }
 
     /**

@@ -1,8 +1,15 @@
 <?php
+ini_set('display_errors', 1);
+ini_set('display_startup_errors', 1);
+error_reporting(E_ALL);
 // Importiert Karten aus cards.json als neues Deck in die Datenbank
 require_once __DIR__ . '/Database.php';
 
-$pdo = Database::getConnection();
+try {
+    $pdo = Database::getConnection();
+} catch (Exception $e) {
+    die("Fehler bei der Datenbankverbindung: " . $e->getMessage());
+}
 $cardsFile = __DIR__ . '/cards.json';
 if (!file_exists($cardsFile)) {
     die("cards.json nicht gefunden\n");
