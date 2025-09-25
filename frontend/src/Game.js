@@ -1,5 +1,5 @@
 import React, { useEffect, useState, useCallback } from 'react';
-import { getGameState, giveHint, chooseCard, vote, nextRound } from './api';
+import { getGameState, giveHint, chooseCard, vote, nextRound, resetMatch } from './api';
 import './AppLayout.css';
 
 const SOUND_PATH = 'frontend/sounds/';
@@ -46,6 +46,7 @@ function Game({ gameId, playerName, onLeaveGame }) {
   const phase = gameState.phase;
   const me = gameState.players.find(p => p.name === playerName);
   const isStoryteller = me?.isStoryteller;
+  const isHost = me?.id === 1; // Host hat seat 1
   const myHand = me?.cards || [];
   const submissions = gameState.selectedCards || [];
   const hasSubmitted = submissions.some(s => s.playerId === me?.id);
@@ -189,6 +190,7 @@ function Game({ gameId, playerName, onLeaveGame }) {
             <div key={p.id} className="player-card" style={{padding:'10px 8px'}}>
               <div style={{fontSize:'.95rem', fontWeight: p.name===playerName ? 600:500}}>{p.isStoryteller ? '👑 ' : '🎮 '}{p.name}</div>
               <div style={{fontSize:'.65rem', letterSpacing:'.5px', opacity:.85}}>Punkte: {p.score}</div>
+              <div style={{fontSize:'.55rem', letterSpacing:'.5px', opacity:.6}}>Wins: {p.wins ?? 0}</div>
               {p.isStoryteller && <div className="role">Erzähler</div>}
               {waitingSelect && <div className="phase-tag" style={{background:'#d97706'}}>Wählt…</div>}
               {doneSelect && <div className="phase-tag" style={{background:'#059669'}}>Bereit</div>}
@@ -225,6 +227,7 @@ function Game({ gameId, playerName, onLeaveGame }) {
       case 'selectCards': return 'Karten wählen';
       case 'voting': return 'Abstimmung';
       case 'reveal': return 'Auflösung';
+      case 'finished': return 'Spiel beendet';
       default: return ph;
     }
   };
@@ -342,6 +345,47 @@ function Game({ gameId, playerName, onLeaveGame }) {
         </div>
       );
     }
+    if (phase === 'finished') {
+      const winners = gameState.winners || [];
+      const maxScore = winners.reduce((m,w)=>Math.max(m,w.score),0);
+      return (
+        <div className="stack" style={{alignItems:'flex-start'}}>
+          <h2 style={{margin:'4px 0 8px'}}>🏆 Spiel beendet</h2>
+          {winners.length > 0 ? (
+            <div className="notice" style={{background:'rgba(16,185,129,0.25)',borderColor:'rgba(16,185,129,0.5)'}}>
+              Sieger{winners.length>1?' (Unentschieden)':''}: {winners.map(w=>`${w.name} (${w.score})`).join(', ')}
+            </div>
+          ) : <div className="notice">Keine Gewinner ermittelt</div>}
+          <div style={{marginTop:8,width:'100%'}}>
+            <h4 style={{margin:'4px 0'}}>Endstand</h4>
+            <table className="score-table" style={{width:'100%',fontSize:'.8rem',borderCollapse:'collapse'}}>
+              <thead>
+                <tr style={{textAlign:'left'}}>
+                  <th style={{padding:'4px 6px'}}>Spieler</th>
+                  <th style={{padding:'4px 6px'}}>Punkte</th>
+                  <th style={{padding:'4px 6px'}}>Wins</th>
+                </tr>
+              </thead>
+              <tbody>
+                {gameState.players.slice().sort((a,b)=>b.score-a.score).map(p=> (
+                  <tr key={p.id} style={{background: winners.some(w=>w.name===p.name)?'rgba(16,185,129,0.15)':'transparent'}}>
+                    <td style={{padding:'4px 6px'}}>{p.name}</td>
+                    <td style={{padding:'4px 6px'}}>{p.score}</td>
+                    <td style={{padding:'4px 6px'}}>{p.wins ?? 0}</td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+          {isHost && (
+            <div className="stack" style={{marginTop:12}}>
+              <button className="btn" disabled={sending} onClick={async()=>{setSending(true); const r=await resetMatch(gameId, playerName); setSending(false); if(!r.success) setError(r.message||'Reset fehlgeschlagen');}}>🔄 Neues Match vorbereiten</button>
+              <div className="notice" style={{fontSize:'.65rem'}}>Nach dem Reset könnt ihr ein neues Deck wählen oder direkt starten.</div>
+            </div>
+          )}
+        </div>
+      );
+    }
     return null;
   };
 
@@ -356,6 +400,9 @@ function Game({ gameId, playerName, onLeaveGame }) {
     }
     if (phase === 'reveal' && isStoryteller) {
       actions.push(<button key="next" className="btn" disabled={sending} onClick={handleNextRound}>➡️ Nächste Runde</button>);
+    }
+    if (phase === 'finished' && isHost) {
+      actions.push(<button key="reset" className="btn" disabled={sending} onClick={async()=>{setSending(true); const r=await resetMatch(gameId, playerName); setSending(false); if(!r.success) setError(r.message||'Reset fehlgeschlagen');}}>🔄 Reset Lobby</button>);
     }
     actions.push(<button key="leave" className="btn danger" onClick={onLeaveGame}>🚪 Verlassen</button>);
     return actions;

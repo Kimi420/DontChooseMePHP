@@ -129,3 +129,12 @@ export async function setDeck(gameId, playerName, deckId) {
   });
   return parseJSONResponse(res);
 }
+
+export async function resetMatch(gameId, playerName) {
+  const res = await fetch(`${API_URL}/Game_api.php`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ action: 'resetMatch', gameId, playerName })
+  });
+  return parseJSONResponse(res);
+}

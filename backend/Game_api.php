@@ -112,6 +112,10 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             if (!isset($data['gameId'])) { $res=['success'=>false,'message'=>'gameId fehlt']; break; }
             $res = $service->nextRound($data['gameId']);
             break;
+        case 'resetMatch':
+            if (!isset($data['gameId'],$data['playerName'])) { $res=['success'=>false,'message'=>'Parameter fehlen']; break; }
+            $res = $service->resetMatch($data['gameId'], $data['playerName']);
+            break;
         default:
             $res = ['success'=>false,'message'=>'Unbekannte Aktion'];
     }

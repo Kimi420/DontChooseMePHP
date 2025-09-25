@@ -13,6 +13,7 @@ class NormalizedGameService {
 
     public function __construct() {
         $this->db = Database::getConnection();
+        $this->ensureWinsColumn();
     }
 
     // deckId ist optional, Standardwert = null
@@ -220,6 +221,7 @@ class NormalizedGameService {
     public function vote(string $gameId, string $playerName, int $cardId): array {
         $state = $this->internalState($gameId);
         if (!$state) return ['success'=>false,'message'=>'Spiel nicht gefunden'];
+        if ($state['phase'] === 'finished') return ['success'=>false,'message'=>'Spiel ist beendet'];
         if ($state['phase'] !== 'voting') return ['success'=>false,'message'=>'Nicht Abstimmphase'];
         if ($playerName === $state['storytellerName']) return ['success'=>false,'message'=>'Erzähler stimmt nicht ab'];
         $player = $this->playerByName($gameId, $playerName);
@@ -269,6 +271,7 @@ class NormalizedGameService {
     public function nextRound(string $gameId): array {
         $state = $this->internalState($gameId);
         if (!$state) return ['success'=>false,'message'=>'Spiel nicht gefunden'];
+        if ($state['phase'] === 'finished') return ['success'=>false,'message'=>'Spiel ist beendet'];
         if ($state['phase'] !== 'reveal') return ['success'=>false,'message'=>'Runde noch nicht abgeschlossen'];
         $this->db->beginTransaction();
         try {
@@ -314,6 +317,19 @@ class NormalizedGameService {
         return ['success'=>true];
     }
 
+    public function resetMatch(string $gameId, string $playerName): array {
+        // Nur Host (seat 1) darf resetten, nur wenn Phase finished oder waiting
+        $state = $this->internalState($gameId);
+        if (!$state) return ['success'=>false,'message'=>'Spiel nicht gefunden'];
+        if ($state['phase'] !== 'finished' && $state['phase'] !== 'waiting') return ['success'=>false,'message'=>'Reset nur nach Spielende'];
+        $hostDbId = $this->playerDbIdBySeat($gameId, 1);
+        $player = $this->playerByName($gameId, $playerName);
+        if (!$player) return ['success'=>false,'message'=>'Spieler nicht gefunden'];
+        if ((int)$player['db_id'] !== (int)$hostDbId) return ['success'=>false,'message'=>'Nur Host darf neu starten'];
+        $this->resetGameForNewMatch($gameId);
+        return ['success'=>true];
+    }
+
     public function getGameState(string $gameId, ?string $playerName=null): array {
         $state = $this->internalState($gameId);
         if (!$state) {
@@ -344,6 +360,7 @@ class NormalizedGameService {
                 'id' => $p['seat'],
                 'name' => $p['name'],
                 'score' => (int)$p['score'],
+                'wins' => isset($p['wins']) ? (int)$p['wins'] : 0,
                 'isStoryteller' => (bool)$p['isStoryteller'],
                 'hasSelectedCard' => $hasSelected,
                 'cards' => $showCards ? $cards : []
@@ -363,6 +380,12 @@ class NormalizedGameService {
             $stmt->execute([$state['round_id']]);
             $roundScores = $stmt->fetchAll();
         }
+        $isFinished = $state['phase']==='finished';
+        $winners = [];
+        if ($isFinished) {
+            $max = 0; foreach ($players as $p) { $max = max($max,(int)$p['score']); }
+            foreach ($players as $p) { if ((int)$p['score'] === $max) { $winners[] = [ 'name'=>$p['name'], 'score'=>(int)$p['score'] ]; } }
+        }
         return [
             'success'=>true,
             'gameId'=>$gameId,
@@ -374,11 +397,12 @@ class NormalizedGameService {
             'mixedCards'=>$mixed,
             'selectedCards'=>$submissions,
             'votes'=>$votes,
-            'state'=>$state['phase']==='waiting'?'waiting':'playing',
+            'state'=>$state['phase']==='waiting'?'waiting':($isFinished?'finished':'playing'),
             'cardData'=>$cardData,
             'roundScores'=>$roundScores,
             'deckId'=>$deckId,
-            'deckName'=>$deckName
+            'deckName'=>$deckName,
+            'winners'=>$winners
         ];
     }
 
@@ -440,6 +464,18 @@ class NormalizedGameService {
                 'gameId'=>$gameId,
                 'phase'=>'waiting', 'round_id'=>null,'round_number'=>0,'storytellerSeat'=>1,'storytellerName'=>null,
                 'hint'=>null,'storyteller_card_id'=>null
+            ];
+        }
+        if ($row['phase'] === 'finished') {
+            return [
+                'gameId'=>$gameId,
+                'phase'=>'finished',
+                'round_id'=> $row['round_id'] ? (int)$row['round_id'] : null,
+                'round_number'=>(int)$row['round_number'],
+                'storytellerSeat'=>1,
+                'storytellerName'=>null,
+                'hint'=>null,
+                'storyteller_card_id'=>null
             ];
         }
         $storyId = (int)$row['storyteller_player_id'];
@@ -571,18 +607,12 @@ class NormalizedGameService {
         $noneCorrect = empty($correctVoters);
         $allCorrect = count($correctVoters) === count($allVoters) && !$noneCorrect;
         $scoreChanges = [];
-        if (!$allCorrect && !$noneCorrect) {
-            $scoreChanges[$storyOwnerDbId] = ($scoreChanges[$storyOwnerDbId] ?? 0) + 3;
-        }
-        foreach ($correctVoters as $dbid) {
-            $scoreChanges[$dbid] = ($scoreChanges[$dbid] ?? 0) + 3;
-        }
+        if (!$allCorrect && !$noneCorrect) { $scoreChanges[$storyOwnerDbId] = ($scoreChanges[$storyOwnerDbId] ?? 0) + 3; }
+        foreach ($correctVoters as $dbid) { $scoreChanges[$dbid] = ($scoreChanges[$dbid] ?? 0) + 3; }
         foreach ($votes as $v) {
             $cid=(int)$v['card_id'];
             $owner = $owners[$cid] ?? null;
-            if ($owner && $cid !== $storyCard) {
-                $scoreChanges[$owner] = ($scoreChanges[$owner] ?? 0) + 1;
-            }
+            if ($owner && $cid !== $storyCard) { $scoreChanges[$owner] = ($scoreChanges[$owner] ?? 0) + 1; }
         }
         foreach ($scoreChanges as $playerDbId=>$delta) {
             $stmt=$this->db->prepare("UPDATE g_players SET score=score+? WHERE id=?");
@@ -593,6 +623,45 @@ class NormalizedGameService {
             $ins=$this->db->prepare("INSERT INTO g_round_scores (round_id, game_player_id, delta_score, total_after) VALUES (?,?,?,?)");
             $ins->execute([$roundId,$playerDbId,$delta,$total]);
         }
+        // Siegbedingung prüfen (>=30 Punkte)
+        $stmt=$this->db->prepare("SELECT MAX(score) AS maxScore FROM g_players WHERE game_id=?");
+        $stmt->execute([$gameId]);
+        $maxScore=(int)$stmt->fetch()['maxScore'];
+        if ($maxScore >= 30) {
+            $this->finishGame($gameId, $maxScore);
+        }
+    }
+
+    private function finishGame(string $gameId, int $maxScore): void {
+        // Gewinner bestimmen
+        $stmt=$this->db->prepare("SELECT id FROM g_players WHERE game_id=? AND score=?");
+        $stmt->execute([$gameId,$maxScore]);
+        $winnerIds = array_map(fn($r)=>(int)$r['id'],$stmt->fetchAll());
+        if ($winnerIds) {
+            $in=implode(',',array_fill(0,count($winnerIds),'?'));
+            $upd=$this->db->prepare("UPDATE g_players SET wins = wins + 1 WHERE id IN ($in)");
+            $upd->execute($winnerIds);
+        }
+        // Phase auf finished setzen
+        $this->db->prepare("UPDATE g_games SET phase='finished' WHERE id=?")->execute([$gameId]);
+    }
+
+    private function resetGameForNewMatch(string $gameId): void {
+        // Hände & Deck entfernen
+        // Player IDs ermitteln
+        $stmt=$this->db->prepare("SELECT id FROM g_players WHERE game_id=?");
+        $stmt->execute([$gameId]);
+        $playerIds = array_map(fn($r)=>(int)$r['id'],$stmt->fetchAll());
+        if (!empty($playerIds)) {
+            $in = implode(',', array_fill(0, count($playerIds), '?'));
+            $del = $this->db->prepare("DELETE FROM g_player_cards WHERE game_player_id IN ($in)");
+            $del->execute($playerIds);
+        }
+        $delDeck = $this->db->prepare("DELETE FROM g_deck_cards WHERE game_id=?");
+        $delDeck->execute([$gameId]);
+        // Scores zurücksetzen, Phase auf waiting, Runde 0, Storyteller entfernen
+        $this->db->prepare("UPDATE g_players SET score=0 WHERE game_id=?")->execute([$gameId]);
+        $this->db->prepare("UPDATE g_games SET phase='waiting', current_round=0, storyteller_player_id=NULL WHERE id=?")->execute([$gameId]);
     }
 
     private function dealHands(string $gameId): void {
@@ -620,6 +689,14 @@ class NormalizedGameService {
         foreach ($rows as $r) {
             $upd->execute([$r['id']]);
             $ins->execute([$playerDbId, (int)$r['card_id']]);
+        }
+    }
+
+    private function ensureWinsColumn(): void {
+        try {
+            $this->db->query("SELECT wins FROM g_players LIMIT 1");
+        } catch (Throwable $e) {
+            try { $this->db->exec("ALTER TABLE g_players ADD COLUMN wins INT NOT NULL DEFAULT 0"); } catch (Throwable $e2) { /* ignore */ }
         }
     }
 }
