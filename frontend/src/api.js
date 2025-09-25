@@ -39,11 +39,13 @@ export async function fetchDecks() {
   return parseJSONResponse(res);
 }
 
-export async function createGame(playerName, deckId) {
+export async function createGame(playerName, deckId = null) {
+  const payload = { action: 'createGame', playerName };
+  if (deckId !== null) payload.deckId = deckId;
   const res = await fetch(`${API_URL}/Game_api.php`, {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({ action: 'createGame', playerName, deckId })
+    body: JSON.stringify(payload)
   });
   return parseJSONResponse(res);
 }
@@ -106,6 +108,15 @@ export async function nextRound(gameId) {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify({ gameId, action: 'nextRound' })
+  });
+  return parseJSONResponse(res);
+}
+
+export async function setDeck(gameId, playerName, deckId) {
+  const res = await fetch(`${API_URL}/Game_api.php`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ gameId, action: 'setDeck', playerName, deckId })
   });
   return parseJSONResponse(res);
 }

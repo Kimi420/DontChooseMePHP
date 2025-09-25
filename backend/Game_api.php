@@ -72,6 +72,13 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         case 'start':
             $res = $service->startGame($gameId);
             break;
+        case 'setDeck':
+            if (!isset($data['playerName'],$data['deckId'])) {
+                $res = ['success'=>false,'message'=>'Fehlende Parameter'];
+                break;
+            }
+            $res = $service->setDeck($gameId, $data['playerName'], (int)$data['deckId']);
+            break;
         case 'giveHint':
             if (!isset($data['playerName'],$data['cardId'],$data['hint'])) {
                 $res = ['success'=>false,'message'=>'Fehlende Parameter'];

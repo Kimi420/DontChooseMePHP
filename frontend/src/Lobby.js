@@ -1,9 +1,9 @@
 import React, { useState, useEffect } from 'react';
 import './LobbyStyle.css';
 import './AppLayout.css';
-import { fetchDecks, createGame } from './api';
+import { fetchDecks, createGame, setDeck } from './api';
 
-function Lobby({ players, playerName, gameId, error, onJoin, onStart, onLeave, onCreated }) {
+function Lobby({ players, playerName, gameId, error, onJoin, onStart, onLeave, onCreated, deckId, deckName }) {
   const [inputPlayerName, setInputPlayerName] = useState('');
   const [roomId, setRoomId] = useState(gameId || '');
   const [localError, setLocalError] = useState(error || '');
@@ -72,7 +72,8 @@ function Lobby({ players, playerName, gameId, error, onJoin, onStart, onLeave, o
   const enoughPlayers = players.length >= 3;
 
   if (gameId) {
-    // Lobby-Ansicht für existierendes Spiel (Pre-Start)
+    const isWaiting = true; // Backend liefert phase separately, aber hier in Lobby-Modus
+    const showDeckChooser = isHost && !deckId; // nur Host und noch kein Deck
     return (
       <div className="stack" style={{ width: '100%' }}>
         <div className="space-between" style={{ flexWrap: 'wrap', gap: 12 }}>
@@ -101,18 +102,53 @@ function Lobby({ players, playerName, gameId, error, onJoin, onStart, onLeave, o
         </div>
 
         <div className="sidebar-section" style={{ marginTop: 4 }}>
+          <h3 style={{ margin: '0 0 8px 0' }}>Deck</h3>
+          {deckId && <div className="notice" style={{background:'rgba(59,130,246,0.15)',borderColor:'rgba(59,130,246,0.4)'}}>Aktives Deck: <strong>{deckName || ('#'+deckId)}</strong></div>}
+          {showDeckChooser && (
+            <div className="stack" style={{gap:8}}>
+              <div style={{fontSize:'.8rem'}}>Wähle ein Deck bevor du startest.</div>
+              <div style={{display:'flex', gap:8, alignItems:'center', flexWrap:'wrap'}}>
+                <select
+                  value={selectedDeck || ''}
+                  onChange={e=>setSelectedDeck(e.target.value)}
+                  disabled={loadingDecks || decks.length===0}
+                  style={{minWidth:180}}
+                >
+                  {decks.map(d => <option key={d.id} value={d.id}>{d.name}</option>)}
+                </select>
+                <button
+                  type="button"
+                  className="btn"
+                  disabled={!selectedDeck}
+                  onClick={async ()=>{
+                    if (!selectedDeck) return;
+                    const r = await setDeck(gameId, playerName, parseInt(selectedDeck,10));
+                    if (!r.success) {
+                      setLocalError(r.message || 'Deck setzen fehlgeschlagen');
+                    }
+                  }}
+                >💾 Setzen</button>
+              </div>
+              {loadingDecks && <div className="notice">Decks werden geladen…</div>}
+              {!loadingDecks && decks.length===0 && <div className="alert">Keine Decks gefunden</div>}
+            </div>
+          )}
+        </div>
+
+        <div className="sidebar-section" style={{ marginTop: 4 }}>
           <h3 style={{ margin: '0 0 8px 0' }}>Spielstart</h3>
           {!enoughPlayers && <div className="notice">⏳ Warte auf weitere Spieler (min. 3)</div>}
           {enoughPlayers && !isHost && <div className="notice">Der Raumleiter ({hostPlayer?.name}) kann starten</div>}
-          {enoughPlayers && isHost && (
+          {enoughPlayers && isHost && deckId && (
             <div className="notice" style={{ background: 'rgba(16,185,129,0.25)', borderColor: 'rgba(16,185,129,0.5)' }}>
               Bereit zum Start ✅
             </div>
           )}
+          {isHost && !deckId && <div className="alert" style={{marginTop:6}}>Bitte zuerst ein Deck wählen</div>}
           <div style={{ display: 'flex', gap: 10, flexWrap: 'wrap', marginTop: 12 }}>
             <button
               className="btn"
-              disabled={!enoughPlayers || !isHost}
+              disabled={!enoughPlayers || !isHost || !deckId}
               onClick={() => onStart()}
             >
               🎮 Spiel starten
@@ -126,7 +162,7 @@ function Lobby({ players, playerName, gameId, error, onJoin, onStart, onLeave, o
     );
   }
 
-  // Initiale Ansicht (kein Spiel yet)
+  // Initiale Ansicht (kein Spiel yet) – ohne Deckwahl hier
   return (
     <div className="stack" style={{ width: '100%' }}>
       <h2 style={{ margin: '0 0 8px 0', fontSize: '1.4rem' }}>Spiel erstellen oder beitreten</h2>
@@ -152,18 +188,8 @@ function Lobby({ players, playerName, gameId, error, onJoin, onStart, onLeave, o
           />
         </div>
         <div className="field">
-          <label htmlFor="deckSelect">Kartendeck</label>
-          <select
-            id="deckSelect"
-            value={selectedDeck || ''}
-            onChange={e => setSelectedDeck(e.target.value)}
-            disabled={loadingDecks || decks.length === 0}
-          >
-            {decks.map(deck => (
-              <option key={deck.id} value={deck.id}>{deck.name}</option>
-            ))}
-          </select>
-          {loadingDecks && <div className="notice">Decks werden geladen...</div>}
+          <label htmlFor="deckSelect">Kartendeck (wird später gewählt)</label>
+          <input id="deckSelect" disabled value={decks.length? 'Wird in Lobby gewählt' : 'Noch keine Decks'} />
         </div>
         <div style={{ display: 'flex', flexWrap: 'wrap', gap: 12 }}>
           <button

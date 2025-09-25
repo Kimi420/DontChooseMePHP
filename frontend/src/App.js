@@ -38,6 +38,8 @@ function App() {
     const [error, setError] = useState('');
     const [volume, setVolume] = useState(0.3);
     const [gamePhase, setGamePhase] = useState('waiting');
+    const [deckId, setDeckId] = useState(null);
+    const [deckName, setDeckName] = useState(null);
 
     // Initialisiere AudioManager beim App-Start
     useEffect(() => {
@@ -65,6 +67,8 @@ function App() {
                     if (state && state.success) {
                         setPlayers(state.players || []);
                         setGamePhase(state.phase || 'waiting');
+                        if (state.deckId !== undefined) setDeckId(state.deckId);
+                        if (state.deckName !== undefined) setDeckName(state.deckName);
                     }
                 }).catch(err => console.error('Fehler beim Abrufen des Spielstatus:', err));
             };
@@ -124,11 +128,20 @@ function App() {
         }
     };
 
+    const handleCreatedGame = (newGameId, name) => {
+        setGameId(newGameId);
+        setPlayerName(name);
+        setInSession(true);
+        setDeckId(null); setDeckName(null);
+        setError('');
+    };
+
     const handleLeaveGame = () => {
         setInSession(false);
         setGameId('');
         setPlayers([]);
         setGamePhase('waiting');
+        setDeckId(null); setDeckName(null);
         audioManager.playTrack('sounds/lobby.mp3', true, 1000);
     };
 
@@ -169,6 +182,9 @@ function App() {
                                 onJoin={handleJoin}
                                 onStart={gameId ? handleStartGame : handleCreateGame}
                                 onLeave={handleLeaveGame}
+                                onCreated={handleCreatedGame}
+                                deckId={deckId}
+                                deckName={deckName}
                             />
                         )}
                     </main>

@@ -75,6 +75,13 @@ class NormalizedGameService {
         if (count($players) < 3) {
             return ['success' => false, 'message' => 'Mindestens 3 Spieler benötigt'];
         }
+        // Deck gewählt?
+        $stmtDeck = $this->db->prepare("SELECT deck_id FROM g_games WHERE id=?");
+        $stmtDeck->execute([$gameId]);
+        $rowD = $stmtDeck->fetch();
+        if (!$rowD || !$rowD['deck_id']) {
+            return ['success'=>false,'message'=>'Kein Deck ausgewählt'];
+        }
         $this->db->beginTransaction();
         try {
             // Storyteller = seat 1 initial
@@ -83,12 +90,15 @@ class NormalizedGameService {
             // Runde 1 anlegen
             $stmt = $this->db->prepare("INSERT INTO g_rounds (game_id, round_number, storyteller_player_id) VALUES (?,?,?)");
             $stmt->execute([$gameId, 1, $storytellerId]);
-            $roundId = (int)$this->db->lastInsertId();
             // g_games updaten
             $stmt = $this->db->prepare("UPDATE g_games SET phase='storytelling', storyteller_player_id=?, current_round=1 WHERE id=?");
             $stmt->execute([$storytellerId, $gameId]);
             // Deck aufbauen & mischen
-            $cardData = $this->loadCardData();
+            $cardData = $this->loadCardData($gameId);
+            if (empty($cardData)) {
+                $this->db->rollBack();
+                return ['success'=>false,'message'=>'Gewähltes Deck hat keine Karten'];
+            }
             $ids = array_map(fn($c)=> (int)$c['id'], $cardData);
             shuffle($ids);
             $ins = $this->db->prepare("INSERT INTO g_deck_cards (game_id, position, card_id) VALUES (?,?,?)");
@@ -244,6 +254,25 @@ class NormalizedGameService {
         }
     }
 
+    public function setDeck(string $gameId, string $playerName, int $deckId): array {
+        // Nur in waiting-Phase erlaubt
+        $state = $this->internalState($gameId);
+        if (!$state) return ['success'=>false,'message'=>'Spiel nicht gefunden'];
+        if ($state['phase'] !== 'waiting') return ['success'=>false,'message'=>'Deckwechsel nur vor Spielstart'];
+        // Prüfen: Spieler ist Host (seat 1)
+        $hostDbId = $this->playerDbIdBySeat($gameId, 1);
+        $player = $this->playerByName($gameId, $playerName);
+        if (!$player) return ['success'=>false,'message'=>'Spieler nicht gefunden'];
+        if ((int)$player['db_id'] !== (int)$hostDbId) return ['success'=>false,'message'=>'Nur Host darf Deck wählen'];
+        // Deck existiert?
+        $stmt = $this->db->prepare("SELECT id FROM g_decks WHERE id=?");
+        $stmt->execute([$deckId]);
+        if (!$stmt->fetch()) return ['success'=>false,'message'=>'Deck nicht gefunden'];
+        $stmt = $this->db->prepare("UPDATE g_games SET deck_id=? WHERE id=?");
+        $stmt->execute([$deckId,$gameId]);
+        return ['success'=>true];
+    }
+
     public function getGameState(string $gameId, ?string $playerName=null): array {
         $state = $this->internalState($gameId);
         if (!$state) {
@@ -271,6 +300,11 @@ class NormalizedGameService {
                 'cards' => ($playerName === $p['name']) ? $cards : []
             ];
         }
+        // Deck Meta
+        $deckId = null; $deckName = null;
+        $stmtD = $this->db->prepare("SELECT g.deck_id, d.name FROM g_games g LEFT JOIN g_decks d ON d.id=g.deck_id WHERE g.id=?");
+        $stmtD->execute([$gameId]);
+        if ($rowD = $stmtD->fetch()) { $deckId = $rowD['deck_id']; $deckName = $rowD['name'] ?? null; }
         $cardData = $this->loadCardData();
         // Rundenscores der aktuellen Runde laden (falls vorhanden)
         $roundScores = [];
@@ -292,7 +326,9 @@ class NormalizedGameService {
             'votes'=>$votes,
             'state'=>$state['phase']==='waiting'?'waiting':'playing',
             'cardData'=>$cardData,
-            'roundScores'=>$roundScores
+            'roundScores'=>$roundScores,
+            'deckId'=>$deckId,
+            'deckName'=>$deckName
         ];
     }
 
