@@ -184,10 +184,6 @@ function Lobby({ players, playerName, gameId, error, onJoin, onStart, onLeave, o
             maxLength={10}
           />
         </div>
-        <div className="field">
-          <label htmlFor="deckSelect">Kartendeck</label>
-          <input id="deckSelect" disabled value="Wird nach Erstellung in der Lobby gewählt" />
-        </div>
         <div style={{ display: 'flex', flexWrap: 'wrap', gap: 12 }}>
           <button
             type="button"

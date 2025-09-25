@@ -309,7 +309,7 @@ class NormalizedGameService {
         // Rundenscores der aktuellen Runde laden (falls vorhanden)
         $roundScores = [];
         if ($state['round_id']) {
-            $stmt = $this->db->prepare("SELECT game_player_id, delta_score, total_after FROM g_round_scores WHERE round_id=?");
+            $stmt = $this->db->prepare("SELECT rs.game_player_id, p.seat AS player_seat, p.name AS player_name, rs.delta_score, rs.total_after FROM g_round_scores rs JOIN g_players p ON p.id=rs.game_player_id WHERE rs.round_id=? ORDER BY rs.id ASC");
             $stmt->execute([$state['round_id']]);
             $roundScores = $stmt->fetchAll();
         }

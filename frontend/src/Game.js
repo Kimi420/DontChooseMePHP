@@ -318,23 +318,21 @@ function Game({ gameId, playerName, onLeaveGame }) {
           {gameState.hint && <div className="hint-banner"><span className="label">Hinweis</span>{gameState.hint}</div>}
           <h3 style={{margin:'0 0 4px', fontSize:'.9rem', letterSpacing:'.5px', textTransform:'uppercase'}}>Auflösung</h3>
           {renderMixed(false)}
-          {storytellerCardId && (
-            <div style={{marginTop:4, fontSize:'.8rem'}}>Erzählerkarte war: <strong>{meta?.title || storytellerCardId}</strong></div>
-          )}
           {/* Punkteverteilung anzeigen */}
           {Array.isArray(gameState.roundScores) && gameState.roundScores.length > 0 && (
             <div className="reveal-details">
               <h4 style={{margin:'8px 0 4px 0', fontSize:'.95rem'}}>Punkteverteilung dieser Runde</h4>
-              <ul style={{listStyle:'none',padding:0,margin:0}}>
+              <ul className="round-score-list">
                 {gameState.roundScores.map(rs => {
-                  const player = gameState.players.find(p => p.id === rs.game_player_id);
+                  const pName = rs.player_name || (gameState.players.find(p => p.id === rs.game_player_id)?.name) || 'Spieler';
+                  const delta = parseInt(rs.delta_score, 10);
+                  const total = rs.total_after;
+                  const cls = 'round-score-item ' + (delta > 0 ? 'positive' : (delta < 0 ? 'negative' : ''));
                   return (
-                    <li key={rs.game_player_id} style={{marginBottom:2}}>
-                      <span style={{fontWeight:600}}>{player ? player.name : 'Spieler ' + rs.game_player_id}</span>: {' '}
-                      <span style={{color: rs.delta_score > 0 ? 'green' : (rs.delta_score < 0 ? 'red' : undefined)}}>
-                        {rs.delta_score > 0 ? '+' : ''}{rs.delta_score}
-                      </span>
-                      {' '}<span style={{opacity:.7,fontSize:'.9em'}}>({rs.total_after} gesamt)</span>
+                    <li key={rs.game_player_id} className={cls}>
+                      <span className="rs-name">{pName}</span>
+                      <span className="rs-delta">{delta > 0 ? '+' : ''}{delta}</span>
+                      <span className="rs-total">gesamt {total}</span>
                     </li>
                   );
                 })}
