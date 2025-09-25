@@ -25,6 +25,18 @@ function readJson(): array {
 }
 
 if ($_SERVER['REQUEST_METHOD'] === 'GET') {
+    if (isset($_GET['decks'])) {
+        try {
+            $pdo = Database::getConnection();
+            $stmt = $pdo->query("SELECT id, name, description FROM g_decks ORDER BY id");
+            $decks = $stmt->fetchAll();
+            echo json_encode(['success' => true, 'decks' => $decks]);
+        } catch (Throwable $e) {
+            http_response_code(500);
+            echo json_encode(['success' => false, 'error' => 'Fehler beim Laden der Decks', 'debug' => $e->getMessage()]);
+        }
+        exit;
+    }
     if (!isset($_GET['gameId'])) {
         echo json_encode(['success' => false, 'message' => 'Game ID fehlt']);
         exit;
