@@ -147,6 +147,15 @@ class Database {
             INDEX idx_game (game_id),
             INDEX idx_game_consumed (game_id, consumed)
         )");
+
+        // Deck-Zuordnung zu Spiel ergänzen
+        $pdo->exec("ALTER TABLE g_games ADD COLUMN deck_id INT NULL AFTER id");
+        // Optional: Fremdschlüssel setzen (nur falls noch nicht vorhanden)
+        try {
+            $pdo->exec("ALTER TABLE g_games ADD CONSTRAINT fk_games_deck FOREIGN KEY (deck_id) REFERENCES g_decks(id) ON DELETE SET NULL");
+        } catch (PDOException $e) {
+            // Fehler ignorieren, falls Constraint schon existiert
+        }
     }
 
     /**

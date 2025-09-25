@@ -34,11 +34,16 @@ async function parseJSONResponse(response) {
   }
 }
 
-export async function createGame(playerName) {
-  const res = await fetch(`${API_URL}/Lobby.php`, {
+export async function fetchDecks() {
+  const res = await fetch(`${API_URL}/Game_api.php?decks=1`);
+  return parseJSONResponse(res);
+}
+
+export async function createGame(playerName, deckId) {
+  const res = await fetch(`${API_URL}/Game_api.php`, {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({ playerName })
+    body: JSON.stringify({ action: 'createGame', playerName, deckId })
   });
   return parseJSONResponse(res);
 }

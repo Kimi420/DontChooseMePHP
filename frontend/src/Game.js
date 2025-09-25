@@ -321,29 +321,26 @@ function Game({ gameId, playerName, onLeaveGame }) {
           {storytellerCardId && (
             <div style={{marginTop:4, fontSize:'.8rem'}}>Erzählerkarte war: <strong>{meta?.title || storytellerCardId}</strong></div>
           )}
-          <div className="reveal-details">
-            {mixedCards.map(cid => {
-              const ownerId = ownerMap[cid];
-              const ownerName = ownerId ? nameById[ownerId] : 'Unbekannt';
-              const voterIds = voteMap[cid] || [];
-              const isStoryCard = cid === storytellerCardId;
-              return (
-                <div key={cid} className="reveal-card-row">
-                  <div style={{display:'flex',justifyContent:'space-between',alignItems:'center'}}>
-                    <strong style={{fontSize:'.85rem'}}>{getCardMeta(cid)?.title || ('Karte '+cid)}</strong>
-                    <div className="meta">
-                      <span className={`reveal-chip owner`}>👤 {ownerName}{isStoryCard ? ' (Erzähler)' : ''}</span>
-                      {isStoryCard && <span className="reveal-chip story">Hinweis-Ziel</span>}
-                      {voterIds.length === 0 && <span className="reveal-chip">Keine Stimmen</span>}
-                      {voterIds.length > 0 && (
-                        <span className={`reveal-chip ${isStoryCard ? 'good':''}`}>🗳 {voterIds.map(id=>nameById[id]).join(', ')}</span>
-                      )}
-                    </div>
-                  </div>
-                </div>
-              );
-            })}
-          </div>
+          {/* Punkteverteilung anzeigen */}
+          {Array.isArray(gameState.roundScores) && gameState.roundScores.length > 0 && (
+            <div className="reveal-details">
+              <h4 style={{margin:'8px 0 4px 0', fontSize:'.95rem'}}>Punkteverteilung dieser Runde</h4>
+              <ul style={{listStyle:'none',padding:0,margin:0}}>
+                {gameState.roundScores.map(rs => {
+                  const player = gameState.players.find(p => p.id === rs.game_player_id);
+                  return (
+                    <li key={rs.game_player_id} style={{marginBottom:2}}>
+                      <span style={{fontWeight:600}}>{player ? player.name : 'Spieler ' + rs.game_player_id}</span>: {' '}
+                      <span style={{color: rs.delta_score > 0 ? 'green' : (rs.delta_score < 0 ? 'red' : undefined)}}>
+                        {rs.delta_score > 0 ? '+' : ''}{rs.delta_score}
+                      </span>
+                      {' '}<span style={{opacity:.7,fontSize:'.9em'}}>({rs.total_after} gesamt)</span>
+                    </li>
+                  );
+                })}
+              </ul>
+            </div>
+          )}
         </div>
       );
     }

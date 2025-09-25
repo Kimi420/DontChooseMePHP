@@ -1,11 +1,26 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import './LobbyStyle.css';
 import './AppLayout.css';
+import { fetchDecks, createGame } from './api';
 
 function Lobby({ players, playerName, gameId, error, onJoin, onStart, onLeave }) {
   const [inputPlayerName, setInputPlayerName] = useState('');
   const [roomId, setRoomId] = useState(gameId || '');
   const [localError, setLocalError] = useState(error || '');
+  const [decks, setDecks] = useState([]);
+  const [selectedDeck, setSelectedDeck] = useState(null);
+  const [loadingDecks, setLoadingDecks] = useState(false);
+
+  useEffect(() => {
+    setLoadingDecks(true);
+    fetchDecks().then(res => {
+      if (res.success && Array.isArray(res.decks)) {
+        setDecks(res.decks);
+        setSelectedDeck(res.decks[0]?.id || null);
+      }
+      setLoadingDecks(false);
+    });
+  }, []);
 
   const handlePlayerNameChange = (e) => {
     setInputPlayerName(e.target.value);
@@ -31,13 +46,23 @@ function Lobby({ players, playerName, gameId, error, onJoin, onStart, onLeave })
     onJoin(roomId, inputPlayerName);
   };
 
-  const handleCreate = () => {
+  const handleCreate = async () => {
     if (!inputPlayerName) {
       setLocalError('Bitte einen Namen eingeben!');
       return;
     }
-
-    onStart(inputPlayerName);
+    if (!selectedDeck) {
+      setLocalError('Bitte ein Kartendeck auswählen!');
+      return;
+    }
+    setLocalError('');
+    // createGame direkt aufrufen, damit Deck übergeben wird
+    const res = await createGame(inputPlayerName, selectedDeck);
+    if (res.success && res.gameId) {
+      onJoin(res.gameId, inputPlayerName);
+    } else {
+      setLocalError(res.message || 'Fehler beim Erstellen des Spiels');
+    }
   };
 
   const hostPlayer = players && players.length > 0 ? players.reduce((min, p) => (p.id < min.id ? p : min), players[0]) : null;
@@ -124,6 +149,20 @@ function Lobby({ players, playerName, gameId, error, onJoin, onStart, onLeave })
             maxLength={10}
           />
         </div>
+        <div className="field">
+          <label htmlFor="deckSelect">Kartendeck</label>
+          <select
+            id="deckSelect"
+            value={selectedDeck || ''}
+            onChange={e => setSelectedDeck(e.target.value)}
+            disabled={loadingDecks || decks.length === 0}
+          >
+            {decks.map(deck => (
+              <option key={deck.id} value={deck.id}>{deck.name}</option>
+            ))}
+          </select>
+          {loadingDecks && <div className="notice">Decks werden geladen...</div>}
+        </div>
         <div style={{ display: 'flex', flexWrap: 'wrap', gap: 12 }}>
           <button
             type="button"
@@ -137,7 +176,7 @@ function Lobby({ players, playerName, gameId, error, onJoin, onStart, onLeave })
             type="button"
             className="btn outline"
             onClick={handleCreate}
-            disabled={!inputPlayerName}
+            disabled={!inputPlayerName || !selectedDeck}
           >
             🎮 Neues Spiel
           </button>

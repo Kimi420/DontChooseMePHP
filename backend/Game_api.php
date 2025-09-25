@@ -38,6 +38,18 @@ if ($_SERVER['REQUEST_METHOD'] === 'GET') {
 
 if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     $data = readJson();
+    // Erweiterung: Lobby-Erstellung mit Deck-Auswahl
+    if (isset($data['action']) && $data['action'] === 'createGame') {
+        $playerName = $data['playerName'] ?? null;
+        $deckId = isset($data['deckId']) ? (int)$data['deckId'] : null;
+        if (!$playerName) {
+            echo json_encode(['success' => false, 'message' => 'Spielername fehlt']);
+            exit;
+        }
+        $res = $service->createGame($playerName, $deckId);
+        echo json_encode($res);
+        exit;
+    }
     if (!$data || !isset($data['gameId']) || !isset($data['action'])) {
         echo json_encode(['success' => false, 'message' => 'Ungültige Anfrage']);
         exit;

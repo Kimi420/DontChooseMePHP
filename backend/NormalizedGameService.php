@@ -15,12 +15,13 @@ class NormalizedGameService {
         $this->db = Database::getConnection();
     }
 
-    public function createGame(string $playerName): array {
+    // deckId ist optional, Standardwert = null
+    public function createGame(string $playerName, ?int $deckId = null): array {
         $gameId = $this->generateGameId();
         $this->db->beginTransaction();
         try {
-            $stmt = $this->db->prepare("INSERT INTO g_games (id, phase, current_round) VALUES (?, 'waiting', 0)");
-            $stmt->execute([$gameId]);
+            $stmt = $this->db->prepare("INSERT INTO g_games (id, phase, current_round, deck_id) VALUES (?, 'waiting', 0, ?)");
+            $stmt->execute([$gameId, $deckId]);
             // Ersten Spieler anlegen (seat=1)
             $stmt = $this->db->prepare("INSERT INTO g_players (game_id, seat, name) VALUES (?, ?, ?)");
             $stmt->execute([$gameId, 1, $playerName]);
@@ -271,6 +272,13 @@ class NormalizedGameService {
             ];
         }
         $cardData = $this->loadCardData();
+        // Rundenscores der aktuellen Runde laden (falls vorhanden)
+        $roundScores = [];
+        if ($state['round_id']) {
+            $stmt = $this->db->prepare("SELECT game_player_id, delta_score, total_after FROM g_round_scores WHERE round_id=?");
+            $stmt->execute([$state['round_id']]);
+            $roundScores = $stmt->fetchAll();
+        }
         return [
             'success'=>true,
             'gameId'=>$gameId,
@@ -283,7 +291,8 @@ class NormalizedGameService {
             'selectedCards'=>$submissions,
             'votes'=>$votes,
             'state'=>$state['phase']==='waiting'?'waiting':'playing',
-            'cardData'=>$cardData
+            'cardData'=>$cardData,
+            'roundScores'=>$roundScores
         ];
     }
 
@@ -300,11 +309,22 @@ class NormalizedGameService {
         return $id;
     }
 
-    private function loadCardData(): array {
-        $file = __DIR__ . '/cards.json';
-        if (!file_exists($file)) return [];
-        $json = file_get_contents($file);
-        return json_decode($json,true) ?: [];
+    // Lädt alle Karten für das zum Spiel gehörende Deck aus der Datenbank
+    private function loadCardData(?string $gameId = null): array {
+        if ($gameId === null) {
+            // Fallback: alle Karten aus allen Decks
+            $stmt = $this->db->query("SELECT * FROM g_cards");
+            return $stmt->fetchAll();
+        }
+        // Deck-ID für das Spiel abfragen
+        $stmt = $this->db->prepare("SELECT deck_id FROM g_games WHERE id = ?");
+        $stmt->execute([$gameId]);
+        $row = $stmt->fetch();
+        if (!$row || !$row['deck_id']) return [];
+        $deckId = $row['deck_id'];
+        $stmt = $this->db->prepare("SELECT * FROM g_cards WHERE deck_id = ?");
+        $stmt->execute([$deckId]);
+        return $stmt->fetchAll();
     }
 
     private function fetchPlayers(string $gameId): array {
