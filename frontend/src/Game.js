@@ -217,6 +217,13 @@ function Game({ gameId, playerName, onLeaveGame }) {
         {phase === 'selectCards' && !isStoryteller && !hasSubmitted && <div className="notice">Wähle eine Karte aus deiner Hand</div>}
         {phase === 'voting' && !isStoryteller && !hasVoted && <div className="notice">Welche Karte gehört dem Erzähler?</div>}
         {phase === 'reveal' && <div className="notice">Ergebnis ansehen & nächste Runde</div>}
+        {phase === 'finished' && (
+          <div className="notice" style={{background:'rgba(16,185,129,0.15)',borderColor:'rgba(16,185,129,0.4)'}}>
+            {Array.isArray(gameState.winners) && gameState.winners.length>0 ? (
+              <>🏆 Sieger: {gameState.winners.map(w=>w.name + ' ('+w.score+')').join(', ')}<br/><span style={{fontSize:'.65rem'}}>Host kann ein neues Match vorbereiten.</span></>
+            ) : 'Spiel beendet'}
+          </div>
+        )}
       </div>
     </div>
   );

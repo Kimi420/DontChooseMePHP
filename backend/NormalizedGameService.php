@@ -647,21 +647,43 @@ class NormalizedGameService {
     }
 
     private function resetGameForNewMatch(string $gameId): void {
-        // Hände & Deck entfernen
-        // Player IDs ermitteln
-        $stmt=$this->db->prepare("SELECT id FROM g_players WHERE game_id=?");
-        $stmt->execute([$gameId]);
-        $playerIds = array_map(fn($r)=>(int)$r['id'],$stmt->fetchAll());
-        if (!empty($playerIds)) {
-            $in = implode(',', array_fill(0, count($playerIds), '?'));
-            $del = $this->db->prepare("DELETE FROM g_player_cards WHERE game_player_id IN ($in)");
-            $del->execute($playerIds);
+        $this->db->beginTransaction();
+        try {
+            // Alle Runden ermitteln
+            $stmt=$this->db->prepare("SELECT id FROM g_rounds WHERE game_id=?");
+            $stmt->execute([$gameId]);
+            $roundIds = array_map(fn($r)=>(int)$r['id'],$stmt->fetchAll());
+            if (!empty($roundIds)) {
+                $in = implode(',', array_fill(0,count($roundIds),'?'));
+                // Abhängige Tabellen in richtiger Reihenfolge löschen
+                $delScores = $this->db->prepare("DELETE FROM g_round_scores WHERE round_id IN ($in)");
+                $delScores->execute($roundIds);
+                $delVotes = $this->db->prepare("DELETE FROM g_round_votes WHERE round_id IN ($in)");
+                $delVotes->execute($roundIds);
+                $delSubs = $this->db->prepare("DELETE FROM g_round_submissions WHERE round_id IN ($in)");
+                $delSubs->execute($roundIds);
+                $delRounds = $this->db->prepare("DELETE FROM g_rounds WHERE id IN ($in)");
+                $delRounds->execute($roundIds);
+            }
+            // Hände & Deck entfernen
+            $stmt=$this->db->prepare("SELECT id FROM g_players WHERE game_id=?");
+            $stmt->execute([$gameId]);
+            $playerIds = array_map(fn($r)=>(int)$r['id'],$stmt->fetchAll());
+            if (!empty($playerIds)) {
+                $inPlayers = implode(',', array_fill(0, count($playerIds), '?'));
+                $del = $this->db->prepare("DELETE FROM g_player_cards WHERE game_player_id IN ($inPlayers)");
+                $del->execute($playerIds);
+            }
+            $delDeck = $this->db->prepare("DELETE FROM g_deck_cards WHERE game_id=?");
+            $delDeck->execute([$gameId]);
+            // Scores zurücksetzen, Phase auf waiting, Runde 0, Storyteller entfernen (Deck bleibt erhalten)
+            $this->db->prepare("UPDATE g_players SET score=0 WHERE game_id=?")->execute([$gameId]);
+            $this->db->prepare("UPDATE g_games SET phase='waiting', current_round=0, storyteller_player_id=NULL WHERE id=?")->execute([$gameId]);
+            $this->db->commit();
+        } catch (Throwable $e) {
+            $this->db->rollBack();
+            error_log('resetGameForNewMatch error: '.$e->getMessage());
         }
-        $delDeck = $this->db->prepare("DELETE FROM g_deck_cards WHERE game_id=?");
-        $delDeck->execute([$gameId]);
-        // Scores zurücksetzen, Phase auf waiting, Runde 0, Storyteller entfernen
-        $this->db->prepare("UPDATE g_players SET score=0 WHERE game_id=?")->execute([$gameId]);
-        $this->db->prepare("UPDATE g_games SET phase='waiting', current_round=0, storyteller_player_id=NULL WHERE id=?")->execute([$gameId]);
     }
 
     private function dealHands(string $gameId): void {
