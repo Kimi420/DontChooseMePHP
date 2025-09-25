@@ -127,6 +127,13 @@ body { margin:0; font-family: system-ui,-apple-system,Segoe UI,Roboto,Ubuntu,can
   .app-header h1 { font-size: clamp(1.8rem,10vw,2.4rem); }
 }
 
+.app-header .header-left { position:absolute; left:12px; top:12px; display:flex; align-items:center; gap:8px; }
+.app-header .autoplay-cta { position:absolute; right:12px; top:12px; display:flex; align-items:center; }
+.autoplay-btn { --btn-bg:none; background:linear-gradient(135deg,#ffdd55,#ffb300); color:#2b2300; border:1px solid rgba(0,0,0,0.25); box-shadow:0 4px 12px -4px rgba(0,0,0,.45); font-size:.75rem; letter-spacing:.5px; text-transform:uppercase; padding:10px 16px; border-radius:40px; font-weight:600; }
+.autoplay-btn:hover:not(:disabled){ background:linear-gradient(135deg,#ffe470,#ffc233); transform:translateY(-2px); }
+.autoplay-btn:disabled { opacity:.6; cursor:not-allowed; }
+.autoplay-btn:focus-visible { outline:2px solid #000; outline-offset:2px; }
+
 .hint-banner {background:linear-gradient(135deg,#f59e0b,#fbbf24); color:#1e1e1e; padding:10px 16px; border-radius: var(--radius-md); font-weight:600; letter-spacing:.5px; display:flex; align-items:center; gap:10px; box-shadow:0 4px 14px -4px rgba(0,0,0,.4);}
 .hint-banner span.label{background:rgba(0,0,0,0.15); padding:4px 8px; border-radius:20px; font-size:.65rem; text-transform:uppercase; letter-spacing:.7px;}
 .reveal-details {display:flex; flex-direction:column; gap:14px; margin-top:10px;}

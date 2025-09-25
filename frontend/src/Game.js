@@ -3,8 +3,6 @@ import { getGameState, giveHint, chooseCard, vote, nextRound, resetMatch } from 
 import './AppLayout.css';
 import audioManager from './AudioManager';
 
-const SOUND_PATH = 'frontend/sounds/';
-
 function Game({ gameId, playerName, onLeaveGame }) {
   const [gameState, setGameState] = useState(null);
   const [hintInput, setHintInput] = useState('');
@@ -50,18 +48,20 @@ function Game({ gameId, playerName, onLeaveGame }) {
     let track = 'sounds/lobby.mp3';
     if (p === 'storytelling') { desiredKey = 'storyteller'; track = 'sounds/storyteller.mp3'; }
     else if (p === 'voting') { desiredKey = 'voting'; track = 'sounds/voting.mp3'; }
-    // Für andere Phasen (selectCards, reveal, finished) wieder Lobby-Musik
-    if (lastMusicRef.current === desiredKey) return; // nichts ändern
-    if (desiredKey === 'lobby') {
-      audioManager.requestBackgroundMusic(track, true, 800);
-    } else {
-      audioManager.playTrack(track, true, 600).catch(() => {
-        // Fallback falls "voting.mp3" nicht existiert und z.B. "vote.mp3" vorhanden ist
-        if (desiredKey === 'voting') {
-          audioManager.playTrack('sounds/vote.mp3', true, 600).catch(()=>{});
-        }
-      });
+    else if (p === 'reveal') { desiredKey = 'lobby'; track = 'sounds/lobby.mp3'; }
+    else if (p === 'finished') { desiredKey = 'lobby'; track = 'sounds/lobby.mp3'; }
+
+    // Wenn schon derselbe Key aktiv und kein blockiertes Pending -> nichts tun
+    if (lastMusicRef.current === desiredKey && !audioManager.autoplayBlocked) return;
+
+    // Wechsel über requestBackgroundMusic, damit bei Autoplay-Block erneut versucht wird
+    audioManager.requestBackgroundMusic(track, true, desiredKey === 'lobby' ? 800 : 600);
+
+    // Optional Soundeffekt beim echten Phasenwechsel (nicht beim ersten Mount)
+    if (lastMusicRef.current && lastMusicRef.current !== desiredKey) {
+      audioManager.playEffect('sounds/phase-change.mp3', { volumeMultiplier: 0.6 }).catch(()=>{});
     }
+
     lastMusicRef.current = desiredKey;
   }, [gameState?.phase]);
 
@@ -74,7 +74,6 @@ function Game({ gameId, playerName, onLeaveGame }) {
   const myHand = me?.cards || [];
   const submissions = gameState.selectedCards || [];
   const hasSubmitted = submissions.some(s => s.playerId === me?.id);
-  const allSubmitted = gameState.players.filter(p => !p.isStoryteller).every(p => submissions.some(s => s.playerId === p.id));
   const votes = gameState.votes || [];
   const hasVoted = votes.some(v => v.playerId === me?.id);
 
@@ -156,6 +155,7 @@ function Game({ gameId, playerName, onLeaveGame }) {
         voteMap[v.cardId].push(v.playerId);
       });
     }
+    // Mapping ID->Name für Anzeige
     const nameById = Object.fromEntries(gameState.players.map(p => [p.id, p.name]));
     return (
       <div className="mixed-grid">
@@ -172,8 +172,8 @@ function Game({ gameId, playerName, onLeaveGame }) {
           let ownerName = null; let voterNames = []; let voterLine = '';
           if (phase === 'reveal') {
             const ownerId = ownerMap[cid];
-            ownerName = ownerId ? nameById[ownerId] : 'Unbekannt';
-            voterNames = voteMap[cid] ? voteMap[cid].map(id => nameById[id]) : [];
+            ownerName = ownerId ? nameById[ownerId] || ownerId : 'Unbekannt';
+            voterNames = voteMap[cid] ? voteMap[cid].map(id => nameById[id] || id) : [];
             if (voterNames.length === 0) voterLine = 'Keine Stimmen';
             else if (voterNames.join(', ').length < 26) voterLine = voterNames.join(', ');
             else voterLine = voterNames.length + ' Stimmen';
@@ -329,8 +329,6 @@ function Game({ gameId, playerName, onLeaveGame }) {
       );
     }
     if (phase === 'reveal') {
-      const meta = storytellerCardId ? getCardMeta(storytellerCardId) : null;
-
       // Karte -> Owner bestimmen
       const storytellerSeat = gameState.storytellerIndex + 1;
       const ownerMap = {};
@@ -343,9 +341,6 @@ function Game({ gameId, playerName, onLeaveGame }) {
         if (!voteMap[v.cardId]) voteMap[v.cardId] = [];
         voteMap[v.cardId].push(v.playerId);
       });
-
-      // Helfer: Name zu ID
-      const nameById = Object.fromEntries(gameState.players.map(p => [p.id, p.name]));
 
       return (
         <div className="stack">
@@ -378,7 +373,6 @@ function Game({ gameId, playerName, onLeaveGame }) {
     }
     if (phase === 'finished') {
       const winners = gameState.winners || [];
-      const maxScore = winners.reduce((m,w)=>Math.max(m,w.score),0);
       return (
         <div className="stack" style={{alignItems:'flex-start'}}>
           <h2 style={{margin:'4px 0 8px'}}>🏆 Spiel beendet</h2>

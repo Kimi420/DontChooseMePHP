@@ -118,7 +118,6 @@ class AudioManager {
   // Spielt Hintergrundmusik (ersetzt vorherigen Track)
   async playTrack(filename, loop = true, fadeInMs = 0, opts={internal:false}) {
     if (!this.isEnabled) return;
-    // Wenn nicht aus internem Autoplay-Aufruf und ein anderer Pending-Track gesetzt ist -> überschreiben
     if (!opts.internal) this._pendingTrack = { filename, loop, fadeInMs };
     try {
       if (this.currentAudio) this.stopTrack(200);
@@ -127,27 +126,42 @@ class AudioManager {
       this.currentAudio = audio;
       audio.loop = !!loop;
       audio.currentTime = 0;
-      audio.volume = fadeInMs > 0 ? 0 : this.volume;
+      // Vorbereiten für Fade-In
+      if (fadeInMs > 0) {
+        audio.volume = 0;
+      } else {
+        audio.volume = this.volume;
+      }
       const playResult = audio.play();
+      let wrappedPromise = null;
       if (playResult && typeof playResult.then === 'function') {
-        playResult.then(() => {
+        wrappedPromise = playResult.then(() => {
           this._setAutoplayBlocked(false);
+          // erfolgreicher Start -> Pending löschen
+          if (!opts.internal) this._pendingTrack = null;
+          return true;
         }).catch(err => {
           if (err && (err.name === 'NotAllowedError' || /play\(\) failed|Autoplay/i.test(err.message||''))) {
             this._setAutoplayBlocked(true);
           }
           if (!opts.internal) console.warn('Playback verweigert (Autoplay oder anderer Fehler). Warte auf User-Geste…');
-          this.currentAudio = null;
+          // Nur zurücksetzen falls dieses Audio noch aktuell ist
+          if (this.currentAudio === audio) this.currentAudio = null;
           throw err;
         });
-        return playResult; // Kette nach außen
+      } else {
+        // Kein Promise -> gilt als erfolgreich
+        this._setAutoplayBlocked(false);
+        if (!opts.internal) this._pendingTrack = null;
       }
+      // Fade-In jetzt wirklich ausführen
+      if (fadeInMs > 0 && this.currentAudio === audio) {
+        this.fadeIn(audio, fadeInMs, this.volume);
+      }
+      return wrappedPromise; // kann null sein
     } catch (e) {
       if (!opts.internal) console.warn('Fehler beim Starten des Tracks:', e);
       throw e;
-    }
-    if (fadeInMs > 0 && this.currentAudio) {
-      this.fadeIn(this.currentAudio, fadeInMs, this.volume);
     }
   }
 

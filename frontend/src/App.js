@@ -211,25 +211,19 @@ function App() {
                     <header className="app-header">
                         <h1>🎨 Don't Choose Me</h1>
                         <p>Das kreative Ratespiel für Freunde & Familie</p>
-                        {!inSession && (
+                        {!inSession && !autoplayBlocked && (
                             <div className="badge-music">🎵 Lobby Musik aktiv</div>
                         )}
-                        <div style={{position:'absolute',left:12,top:12}}>
+                        <div className="header-left">
                             <VolumeControl volume={volume} onChange={handleVolumeChange} />
                         </div>
                         {autoplayBlocked && (
-                          <div style={{position:'absolute',right:12,top:12}}>
+                          <div className="autoplay-cta" role="alert" aria-live="polite">
                             <button
+                              className="btn autoplay-btn"
                               onClick={() => { if (!resuming) { setResuming(true); audioManager.attemptResume(); } }}
                               disabled={resuming}
-                              style={{
-                                background:'#ffcc00',
-                                border:'1px solid #aa9500',
-                                padding:'6px 12px',
-                                borderRadius:6,
-                                cursor: resuming ? 'default' : 'pointer',
-                                fontWeight:600
-                              }}
+                              aria-label="Musik aktivieren (Autoplay war blockiert)"
                             >{resuming ? 'Aktiviere…' : 'Musik aktivieren'}</button>
                           </div>
                         )}
