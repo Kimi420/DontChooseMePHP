@@ -216,19 +216,6 @@ function App() {
                         )}
                         <div className="header-left">
                             <VolumeControl volume={volume} onChange={handleVolumeChange} />
-                            <details className="info-tab">
-                              <summary className="info-tab-summary" aria-label="Punkteverteilung anzeigen/ausblenden">ℹ️ Punkte</summary>
-                              <div className="info-tab-panel" role="region" aria-label="Punkteverteilung – so funktioniert's">
-                                <ul>
-                                  <li><strong>Erzähler</strong>: +3 Punkte, wenn einige (aber nicht alle) die richtige Karte wählen. 0 Punkte, wenn alle oder keiner richtig liegt.</li>
-                                  <li><strong>Richtige Wahl</strong>: +3 Punkte pro Spieler, der die Erzähler-Karte korrekt wählt.</li>
-                                  <li><strong>Täuschpunkte</strong>: +1 Punkt pro Stimme, die auf deine (falsche) Karte fällt.</li>
-                                </ul>
-                                <div className="info-tab-example">
-                                  Beispiel: Spieler A ist Erzähler. Wenn B und C richtig raten, D aber nicht → A +3, B +3, C +3. Bekommt D eine oder mehrere Stimmen auf seine Karte, erhält er zusätzlich +1 pro Stimme.
-                                </div>
-                              </div>
-                            </details>
                         </div>
                         {autoplayBlocked && (
                           <div className="autoplay-cta" role="alert" aria-live="polite">
@@ -241,6 +228,23 @@ function App() {
                           </div>
                         )}
                     </header>
+
+                    {/* Globales Info-Tab unten links, immer sichtbar */}
+                    <div className="global-info" aria-live="polite">
+                      <details className="info-tab">
+                        <summary className="info-tab-summary" aria-label="Punkteverteilung anzeigen/ausblenden">ℹ️ Punkte</summary>
+                        <div className="info-tab-panel" role="region" aria-label="Punkteverteilung – so funktioniert's">
+                          <ul>
+                            <li><strong>Erzähler</strong>: +3 Punkte, wenn einige (aber nicht alle) die richtige Karte wählen. 0 Punkte, wenn alle oder keiner richtig liegt.</li>
+                            <li><strong>Richtige Wahl</strong>: +3 Punkte pro Spieler, der die Erzähler-Karte korrekt wählt.</li>
+                            <li><strong>Täuschpunkte</strong>: +1 Punkt pro Stimme, die auf deine (falsche) Karte fällt.</li>
+                          </ul>
+                          <div className="info-tab-example">
+                            Beispiel: Spieler A ist Erzähler. Wenn B und C richtig raten, D aber nicht → A +3, B +3, C +3. Bekommt D eine oder mehrere Stimmen auf seine Karte, erhält er zusätzlich +1 pro Stimme.
+                          </div>
+                        </div>
+                      </details>
+                    </div>
 
                     <main className={`app-panel phase-${gamePhase}`}>
                         {inSession && gamePhase !== 'waiting' ? (
