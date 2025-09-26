@@ -177,6 +177,30 @@ body { margin:0; font-family: system-ui,-apple-system,Segoe UI,Roboto,Ubuntu,can
   .global-info .info-tab-panel { width: 92vw; }
 }
 
+/* Globales Volume-Panel: unten rechts fixiert, Panel klappt nach oben */
+.global-volume {
+  position: fixed;
+  right: 16px;
+  bottom: calc(var(--safe-bottom) + 16px);
+  z-index: 1000;
+}
+.global-volume .info-tab { position: relative; }
+.global-volume .info-tab-summary { background: var(--color-surface); }
+.global-volume .info-tab-panel {
+  position: absolute;
+  bottom: calc(100% + 10px);
+  top: auto;
+  right: 0;
+  width: min(380px, 92vw);
+  max-height: min(50vh, 420px);
+  overflow: auto;
+  background: rgba(17,24,39,0.92);
+}
+@media (max-width: 600px) {
+  .global-volume { right: 10px; bottom: calc(var(--safe-bottom) + 10px); }
+  .global-volume .info-tab-panel { width: 92vw; }
+}
+
 /* Info-Tab oben links im Header */
 .info-tab { position: relative; }
 .info-tab-summary {

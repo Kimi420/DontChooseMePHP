@@ -215,7 +215,7 @@ function App() {
                             <div className="badge-music">🎵 Lobby Musik aktiv</div>
                         )}
                         <div className="header-left">
-                            <VolumeControl volume={volume} onChange={handleVolumeChange} />
+                            {/* VolumeControl aus dem Header entfernt – jetzt als globales Panel unten rechts */}
                         </div>
                         {autoplayBlocked && (
                           <div className="autoplay-cta" role="alert" aria-live="polite">
@@ -242,6 +242,16 @@ function App() {
                           <div className="info-tab-example">
                             Beispiel: Spieler A ist Erzähler. Wenn B und C richtig raten, D aber nicht → A +3, B +3, C +3. Bekommt D eine oder mehrere Stimmen auf seine Karte, erhält er zusätzlich +1 pro Stimme.
                           </div>
+                        </div>
+                      </details>
+                    </div>
+
+                    {/* Globales Volume-Panel unten rechts, ausklappbar */}
+                    <div className="global-volume" aria-live="polite">
+                      <details className="info-tab">
+                        <summary className="info-tab-summary" aria-label="Lautstärke einstellen">🔊 Lautstärke</summary>
+                        <div className="info-tab-panel" role="region" aria-label="Lautstärkeregelung">
+                          <VolumeControl volume={volume} onChange={handleVolumeChange} />
                         </div>
                       </details>
                     </div>
