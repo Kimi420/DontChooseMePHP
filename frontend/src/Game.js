@@ -1,4 +1,4 @@
-import React, { useEffect, useRef, useState } from 'react';
+import React, { useEffect, useRef, useState, useCallback } from 'react';
 import { getGameState, giveHint, chooseCard, vote, nextRound, resetMatch } from './api';
 import './AppLayout.css';
 import audioManager from './AudioManager';
