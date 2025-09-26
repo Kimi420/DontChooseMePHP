@@ -14,6 +14,9 @@ class AudioManager {
     // Neu: Autoplay-Status
     this.autoplayBlocked = false;
     this._statusListeners = new Set();
+    // Neu: Fade-Intervalle & Trackname Tracking
+    this._fadeIntervals = new Map(); // audioEl -> intervalId
+    this._currentTrackName = null;
   }
 
   // Listener-Verwaltung für Statusänderungen (z.B. autoplayBlocked)
@@ -77,7 +80,9 @@ class AudioManager {
   }
 
   requestBackgroundMusic(filename, loop=true, fadeInMs=0) {
-    // Sofort versuchen
+    // Wenn derselbe Track schon läuft oder pending und nicht blockiert -> nichts tun
+    if (this._currentTrackName === filename && this.isPlaying() && !this.autoplayBlocked) return;
+    if (this._pendingTrack && this._pendingTrack.filename === filename && this.autoplayBlocked) return; // schon pending
     this.ensureAutoplayUnlock();
     this._pendingTrack = { filename, loop, fadeInMs };
     this._tryPlayPending();
@@ -119,46 +124,68 @@ class AudioManager {
   async playTrack(filename, loop = true, fadeInMs = 0, opts={internal:false}) {
     if (!this.isEnabled) return;
     if (!opts.internal) this._pendingTrack = { filename, loop, fadeInMs };
+    // Wenn derselbe Track bereits spielt und kein erzwungener Neustart: nur Volume anpassen / ggf. Fade-In nachziehen
+    if (this._currentTrackName === filename && this.isPlaying()) {
+      if (fadeInMs > 0 && this.currentAudio && this.currentAudio.volume < this.volume) {
+        this._clearFade(this.currentAudio);
+        this.fadeIn(this.currentAudio, fadeInMs, this.volume);
+      } else if (this.currentAudio) {
+        this.currentAudio.volume = this.volume;
+      }
+      this._setAutoplayBlocked(false);
+      if (!opts.internal) this._pendingTrack = null;
+      return;
+    }
     try {
-      if (this.currentAudio) this.stopTrack(200);
-      const audio = await this.loadAudio(filename);
-      if (!audio) throw new Error('Audio nicht geladen');
+      // Vorherigen Track sanft ausfaden (altes Verhalten), aber Fade entkoppeln bevor neuer startet
+      const oldAudio = this.currentAudio;
+      if (oldAudio) {
+        // existierendes Fade abbrechen, dann neues Fade-Out setzen
+        this._clearFade(oldAudio);
+        this.fadeOut(oldAudio, 200, () => {
+          try { oldAudio.pause(); } catch(_) {}
+          if (this.currentAudio === oldAudio) this.currentAudio = null;
+        });
+      }
+      const baseAudio = await this.loadAudio(filename);
+      if (!baseAudio) throw new Error('Audio nicht geladen');
+      // Clone um Race mit altem Fade-Out auf Original zu vermeiden
+      const audio = baseAudio.cloneNode(true);
+      this._clearFade(audio);
       this.currentAudio = audio;
+      this._currentTrackName = filename;
       audio.loop = !!loop;
       audio.currentTime = 0;
-      // Vorbereiten für Fade-In
-      if (fadeInMs > 0) {
-        audio.volume = 0;
-      } else {
-        audio.volume = this.volume;
-      }
-      const playResult = audio.play();
+      audio.volume = fadeInMs > 0 ? 0 : this.volume;
+      const playPromise = audio.play();
       let wrappedPromise = null;
-      if (playResult && typeof playResult.then === 'function') {
-        wrappedPromise = playResult.then(() => {
+      if (playPromise && typeof playPromise.then === 'function') {
+        wrappedPromise = playPromise.then(() => {
           this._setAutoplayBlocked(false);
-          // erfolgreicher Start -> Pending löschen
           if (!opts.internal) this._pendingTrack = null;
-          return true;
+          if (fadeInMs > 0 && this.currentAudio === audio) {
+            this.fadeIn(audio, fadeInMs, this.volume);
+          }
         }).catch(err => {
           if (err && (err.name === 'NotAllowedError' || /play\(\) failed|Autoplay/i.test(err.message||''))) {
             this._setAutoplayBlocked(true);
           }
           if (!opts.internal) console.warn('Playback verweigert (Autoplay oder anderer Fehler). Warte auf User-Geste…');
-          // Nur zurücksetzen falls dieses Audio noch aktuell ist
-          if (this.currentAudio === audio) this.currentAudio = null;
+          if (this.currentAudio === audio) {
+            this.currentAudio = null;
+            this._currentTrackName = null;
+          }
           throw err;
         });
       } else {
-        // Kein Promise -> gilt als erfolgreich
+        // Kein Promise -> direkt erfolgreich
         this._setAutoplayBlocked(false);
         if (!opts.internal) this._pendingTrack = null;
+        if (fadeInMs > 0 && this.currentAudio === audio) {
+            this.fadeIn(audio, fadeInMs, this.volume);
+        }
       }
-      // Fade-In jetzt wirklich ausführen
-      if (fadeInMs > 0 && this.currentAudio === audio) {
-        this.fadeIn(audio, fadeInMs, this.volume);
-      }
-      return wrappedPromise; // kann null sein
+      return wrappedPromise;
     } catch (e) {
       if (!opts.internal) console.warn('Fehler beim Starten des Tracks:', e);
       throw e;
@@ -202,8 +229,9 @@ class AudioManager {
   stopTrack(fadeOutMs = 0) {
     if (!this.currentAudio) return;
     const audio = this.currentAudio;
-
+    this._currentTrackName = null;
     if (fadeOutMs > 0) {
+      this._clearFade(audio);
       this.fadeOut(audio, fadeOutMs, () => {
         try { audio.pause(); } catch (_) {}
         if (this.currentAudio === audio) {
@@ -211,6 +239,7 @@ class AudioManager {
         }
       });
     } else {
+      this._clearFade(audio);
       try { audio.pause(); } catch (_) {}
       if (this.currentAudio === audio) {
         this.currentAudio = null;
@@ -218,8 +247,18 @@ class AudioManager {
     }
   }
 
+  _clearFade(audio) {
+    if (!audio) return;
+    const id = this._fadeIntervals.get(audio);
+    if (id) { clearInterval(id); this._fadeIntervals.delete(audio); }
+  }
+  isPlaying() {
+    return !!(this.currentAudio && !this.currentAudio.paused && !this.currentAudio.ended);
+  }
+
   // Utility: Fade-In
   fadeIn(audio, durationMs, targetVolume) {
+    this._clearFade(audio);
     const steps = 20;
     const stepTime = durationMs / steps;
     let current = 0;
@@ -228,13 +267,16 @@ class AudioManager {
       audio.volume = Math.min(targetVolume, (targetVolume / steps) * current);
       if (current >= steps) {
         clearInterval(interval);
+        this._fadeIntervals.delete(audio);
         audio.volume = targetVolume;
       }
     }, stepTime);
+    this._fadeIntervals.set(audio, interval);
   }
 
   // Utility: Fade-Out
   fadeOut(audio, durationMs, onComplete) {
+    this._clearFade(audio);
     const steps = 20;
     const stepTime = durationMs / steps;
     const startVolume = audio.volume;
@@ -245,10 +287,12 @@ class AudioManager {
       audio.volume = newVolume;
       if (current >= steps || newVolume <= 0.0001) {
         clearInterval(interval);
+        this._fadeIntervals.delete(audio);
         audio.volume = 0;
         if (onComplete) onComplete();
       }
     }, stepTime);
+    this._fadeIntervals.set(audio, interval);
   }
 }
 

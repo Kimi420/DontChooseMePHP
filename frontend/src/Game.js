@@ -1,4 +1,4 @@
-import React, { useEffect, useState, useCallback } from 'react';
+import React, { useEffect, useRef, useState } from 'react';
 import { getGameState, giveHint, chooseCard, vote, nextRound, resetMatch } from './api';
 import './AppLayout.css';
 import audioManager from './AudioManager';
@@ -11,6 +11,8 @@ function Game({ gameId, playerName, onLeaveGame }) {
   const [error, setError] = useState('');
   const [lastPhase, setLastPhase] = useState(null);
   const [votedCard, setVotedCard] = useState(null);
+  const [revealTimer, setRevealTimer] = useState(10);
+  const revealTimeoutRef = useRef(null);
   const lastMusicRef = React.useRef(null);
 
   const fetchState = useCallback(() => {
@@ -116,6 +118,33 @@ function Game({ gameId, playerName, onLeaveGame }) {
     const res = await nextRound(gameId);
     setSending(false);
     if (!res.success) setError(res.message || 'Nächste Runde fehlgeschlagen');
+  };
+
+  // Timer-Logik für die reveal-Phase (nur für Erzähler)
+  useEffect(() => {
+    if (phase === 'reveal' && isStoryteller) {
+      setRevealTimer(10);
+      if (revealTimeoutRef.current) clearInterval(revealTimeoutRef.current);
+      revealTimeoutRef.current = setInterval(() => {
+        setRevealTimer(prev => {
+          if (prev <= 1) {
+            clearInterval(revealTimeoutRef.current);
+            handleNextRound();
+            return 0;
+          }
+          return prev - 1;
+        });
+      }, 1000);
+      return () => clearInterval(revealTimeoutRef.current);
+    } else {
+      if (revealTimeoutRef.current) clearInterval(revealTimeoutRef.current);
+    }
+  }, [phase, isStoryteller]);
+
+  // Timer auch abbrechen, wenn der Erzähler manuell klickt
+  const handleNextRoundWithTimer = async () => {
+    if (revealTimeoutRef.current) clearInterval(revealTimeoutRef.current);
+    await handleNextRound();
   };
 
   /* --- Karten Grids --- */
@@ -424,7 +453,12 @@ function Game({ gameId, playerName, onLeaveGame }) {
       actions.push(<button key="info" className="btn outline" disabled>Wähle oben eine Karte</button>);
     }
     if (phase === 'reveal' && isStoryteller) {
-      actions.push(<button key="next" className="btn" disabled={sending} onClick={handleNextRound}>➡️ Nächste Runde</button>);
+      actions.push(
+        <>
+          <button key="next" className="btn" disabled={sending} onClick={handleNextRoundWithTimer}>➡️ Nächste Runde</button>
+          <span style={{marginLeft:12, fontWeight:'bold', color:'#c55'}}>{revealTimer > 0 && `Automatisch in ${revealTimer}s`}</span>
+        </>
+      );
     }
     if (phase === 'finished' && isHost) {
       actions.push(<button key="reset" className="btn" disabled={sending} onClick={async()=>{setSending(true); const r=await resetMatch(gameId, playerName); setSending(false); if(!r.success) setError(r.message||'Reset fehlgeschlagen');}}>🔄 Reset Lobby</button>);
