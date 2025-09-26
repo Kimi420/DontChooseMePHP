@@ -1,0 +1,82 @@
+/* Countdown-Panel in der Reveal-Phase */
+.auto-next {
+  background: rgba(59,130,246,0.12);
+  border: 1px solid rgba(59,130,246,0.35);
+  border-radius: 8px;
+  padding: 8px 10px;
+  margin: 6px 0 8px;
+}
+.auto-next-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 6px;
+  gap: 8px;
+}
+.auto-next-title {
+  font-weight: 600;
+  font-size: .9rem;
+}
+.auto-next-bar {
+  height: 8px;
+  background: rgba(59,130,246,0.25);
+  border-radius: 9999px;
+  overflow: hidden;
+}
+.auto-next-bar-fill {
+  height: 100%;
+  width: 0%;
+  background: #3b82f6;
+  transition: width .3s ease;
+}
+/* Inline-Countdown unten in der Button-Leiste (nur wenn Top-Panel nicht sichtbar) */
+.auto-next-inline {
+  margin-left: 12px;
+  font-weight: 600;
+  color: #c05555;
+}
+
+/* Ausklappbares Infofenster zur Punkteverteilung */
+.reveal-info {
+  margin: 6px 0 10px;
+}
+.reveal-info-summary {
+  cursor: pointer;
+  user-select: none;
+  list-style: none;
+}
+.reveal-info-summary::-webkit-details-marker {
+  display: none;
+}
+.reveal-info-summary::before {
+  content: '▸';
+  display: inline-block;
+  margin-right: 6px;
+  transform: translateY(-1px);
+  opacity: .8;
+}
+.reveal-info[open] .reveal-info-summary::before {
+  content: '▾';
+}
+.reveal-info-body {
+  padding: 8px 10px;
+  background: rgba(16,185,129,0.08);
+  border: 1px solid rgba(16,185,129,0.35);
+  border-radius: 8px;
+  margin-top: 8px;
+}
+.reveal-info-body ul {
+  margin: 4px 0 8px 18px;
+}
+.reveal-info-example {
+  font-size: .85rem;
+  opacity: .9;
+}
+
+/* Bewegungspräferenz respektieren */
+@media (prefers-reduced-motion: reduce) {
+  .auto-next-bar-fill {
+    transition: none;
+  }
+}
+

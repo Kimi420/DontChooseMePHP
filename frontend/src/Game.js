@@ -1,6 +1,7 @@
 import React, { useEffect, useState, useCallback, useRef } from 'react';
 import { getGameState, giveHint, chooseCard, vote, nextRound, resetMatch } from './api';
 import './AppLayout.css';
+import './GameStyle.css';
 import audioManager from './AudioManager';
 
 function Game({ gameId, playerName, onLeaveGame }) {
@@ -392,27 +393,26 @@ function Game({ gameId, playerName, onLeaveGame }) {
                     <h3 style={{margin:'0 0 4px', fontSize:'.9rem', letterSpacing:'.5px', textTransform:'uppercase'}}>Auflösung</h3>
 
                     {isStoryteller && deadline && (
-                        <div className="auto-next" style={{background:'rgba(59,130,246,0.12)', border:'1px solid rgba(59,130,246,0.35)', borderRadius:8, padding:'8px 10px', margin:'6px 0 8px'}}>
-                            <div style={{display:'flex', justifyContent:'space-between', alignItems:'center', marginBottom:6}}>
-                                <div style={{fontWeight:600, fontSize:'.85rem'}}>Nächste Runde in {remainSec}s</div>
+                        <div className="auto-next">
+                            <div className="auto-next-header">
+                                <div className="auto-next-title">Nächste Runde in {remainSec}s</div>
                                 <button className="btn" disabled={sending} onClick={handleNextRoundWithTimeout}>Jetzt starten</button>
                             </div>
-                            <div role="progressbar" aria-valuemin={0} aria-valuemax={10} aria-valuenow={remainSec || 0}
-                                 style={{height:8, background:'rgba(59,130,246,0.25)', borderRadius:9999, overflow:'hidden'}}>
-                                <div style={{height:'100%', width: `${Math.round(doneRatio*100)}%`, background:'#3b82f6', transition:'width .3s ease'}} />
+                            <div className="auto-next-bar" role="progressbar" aria-valuemin={0} aria-valuemax={10} aria-valuenow={remainSec || 0}>
+                                <div className="auto-next-bar-fill" style={{width: `${Math.round(doneRatio*100)}%`}} />
                             </div>
                         </div>
                     )}
 
-                    <details style={{margin:'6px 0 10px'}}>
-                        <summary style={{cursor:'pointer', userSelect:'none'}}>ℹ️ Punkteverteilung – so funktioniert's</summary>
-                        <div style={{padding:'8px 10px', background:'rgba(16,185,129,0.08)', border:'1px solid rgba(16,185,129,0.35)', borderRadius:8, marginTop:8}}>
-                            <ul style={{margin:'4px 0 8px 18px'}}>
+                    <details className="reveal-info">
+                        <summary className="reveal-info-summary">ℹ️ Punkteverteilung – so funktioniert's</summary>
+                        <div className="reveal-info-body">
+                            <ul>
                                 <li>Erzähler: +3 Punkte, wenn einige (aber nicht alle) die richtige Karte wählen. 0 Punkte, wenn alle oder keiner richtig liegt.</li>
                                 <li>Richtige Wahl: +3 Punkte pro Spieler, der die Erzähler-Karte korrekt wählt.</li>
                                 <li>Täuschpunkte: +1 Punkt pro Stimme, die auf deine (falsche) Karte fällt.</li>
                             </ul>
-                            <div style={{fontSize:'.85rem', opacity:.9}}>
+                            <div className="reveal-info-example">
                                 Beispiel: Spieler A ist Erzähler. Wenn B und C richtig raten, D aber nicht → A +3, B +3, C +3. Bekommt D eine oder mehrere Stimmen auf seine Karte, erhält er zusätzlich +1 pro Stimme.
                             </div>
                         </div>
@@ -497,11 +497,12 @@ function Game({ gameId, playerName, onLeaveGame }) {
         }
         if (phase === 'reveal' && isStoryteller) {
             const secsLeft = revealDeadlineRef.current ? Math.max(0, Math.ceil((revealDeadlineRef.current - Date.now()) / 1000)) : null;
+            const topPanelActive = !!revealDeadlineRef.current; // wenn oben aktiv, unten keine Doppelanzeige
             actions.push(
                 <>
                     <button key="next" className="btn" disabled={sending} onClick={handleNextRoundWithTimeout}>➡️ Nächste Runde</button>
-                    {secsLeft !== null && secsLeft > 0 && (
-                        <span key="count" style={{marginLeft:12, fontWeight:'bold', color:'#c55'}}>Automatisch in {secsLeft}s</span>
+                    {!topPanelActive && secsLeft !== null && secsLeft > 0 && (
+                        <span key="count" className="auto-next-inline">Automatisch in {secsLeft}s</span>
                     )}
                 </>
             );
