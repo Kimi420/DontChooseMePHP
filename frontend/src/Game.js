@@ -1,4 +1,4 @@
-import React, { useEffect, useState, useCallback } from 'react';
+import React, { useEffect, useState, useCallback, useRef } from 'react';
 import { getGameState, giveHint, chooseCard, vote, nextRound, resetMatch } from './api';
 import './AppLayout.css';
 import audioManager from './AudioManager';
@@ -11,7 +11,9 @@ function Game({ gameId, playerName, onLeaveGame }) {
     const [error, setError] = useState('');
     const [lastPhase, setLastPhase] = useState(null);
     const [votedCard, setVotedCard] = useState(null);
-    const lastMusicRef = React.useRef(null);
+    const lastMusicRef = useRef(null);
+    const [revealTimer, setRevealTimer] = useState(10);
+    const revealTimeoutRef = useRef(null);
 
     const fetchState = useCallback(() => {
         getGameState(gameId, playerName).then(state => {
@@ -51,13 +53,11 @@ function Game({ gameId, playerName, onLeaveGame }) {
         else if (p === 'reveal') { desiredKey = 'lobby'; track = 'sounds/lobby.mp3'; }
         else if (p === 'finished') { desiredKey = 'lobby'; track = 'sounds/lobby.mp3'; }
 
-        // Wenn schon derselbe Key aktiv und kein blockiertes Pending -> nichts tun
-        if (lastMusicRef.current === desiredKey && !audioManager.autoplayBlocked) return;
+        // Robuster: nur nichts tun, wenn derselbe Key aktiv ist UND wirklich gerade Musik spielt UND Autoplay nicht blockiert ist
+        if (lastMusicRef.current === desiredKey && audioManager.isPlaying && audioManager.isPlaying() && !audioManager.autoplayBlocked) return;
 
-        // Wechsel über requestBackgroundMusic, damit bei Autoplay-Block erneut versucht wird
         audioManager.requestBackgroundMusic(track, true, desiredKey === 'lobby' ? 800 : 600);
 
-        // Optional Soundeffekt beim echten Phasenwechsel (nicht beim ersten Mount)
         if (lastMusicRef.current && lastMusicRef.current !== desiredKey) {
             audioManager.playEffect('sounds/phase-change.mp3', { volumeMultiplier: 0.6 }).catch(()=>{});
         }
@@ -110,13 +110,44 @@ function Game({ gameId, playerName, onLeaveGame }) {
         if (!res.success) setError(res.message || 'Abstimmung fehlgeschlagen');
     };
 
-    const handleNextRound = async () => {
-        if (phase !== 'reveal') return;
+    const handleNextRound = useCallback(async () => {
+        if (gameState?.phase !== 'reveal') return;
         setSending(true);
         const res = await nextRound(gameId);
         setSending(false);
         if (!res.success) setError(res.message || 'Nächste Runde fehlgeschlagen');
-    };
+    }, [gameState?.phase, gameId]);
+
+    // Timer-Logik für die reveal-Phase (nur für Erzähler)
+    useEffect(() => {
+        if (gameState?.phase === 'reveal' && isStoryteller) {
+            setRevealTimer(10);
+            if (revealTimeoutRef.current) clearInterval(revealTimeoutRef.current);
+            revealTimeoutRef.current = setInterval(() => {
+                setRevealTimer(prev => {
+                    if (prev <= 1) {
+                        clearInterval(revealTimeoutRef.current);
+                        handleNextRound();
+                        return 0;
+                    }
+                    return prev - 1;
+                });
+            }, 1000);
+            return () => clearInterval(revealTimeoutRef.current);
+        } else {
+            if (revealTimeoutRef.current) clearInterval(revealTimeoutRef.current);
+        }
+    }, [gameState?.phase, isStoryteller, handleNextRound]);
+
+    // Cleanup bei Unmount (Sicherheitsnetz)
+    useEffect(() => {
+        return () => { if (revealTimeoutRef.current) clearInterval(revealTimeoutRef.current); };
+    }, []);
+
+    const handleNextRoundWithTimer = useCallback(async () => {
+        if (revealTimeoutRef.current) clearInterval(revealTimeoutRef.current);
+        await handleNextRound();
+    }, [handleNextRound]);
 
     /* --- Karten Grids --- */
     const renderHand = (opts = {}) => (
@@ -424,7 +455,12 @@ function Game({ gameId, playerName, onLeaveGame }) {
             actions.push(<button key="info" className="btn outline" disabled>Wähle oben eine Karte</button>);
         }
         if (phase === 'reveal' && isStoryteller) {
-            actions.push(<button key="next" className="btn" disabled={sending} onClick={handleNextRound}>➡️ Nächste Runde</button>);
+            actions.push(
+                <>
+                    <button key="next" className="btn" disabled={sending} onClick={handleNextRoundWithTimer}>➡️ Nächste Runde</button>
+                    <span style={{marginLeft:12, fontWeight:'bold', color:'#c55'}}>{revealTimer > 0 && `Automatisch in ${revealTimer}s`}</span>
+                </>
+            );
         }
         if (phase === 'finished' && isHost) {
             actions.push(<button key="reset" className="btn" disabled={sending} onClick={async()=>{setSending(true); const r=await resetMatch(gameId, playerName); setSending(false); if(!r.success) setError(r.message||'Reset fehlgeschlagen');}}>🔄 Reset Lobby</button>);
@@ -453,3 +489,4 @@ function Game({ gameId, playerName, onLeaveGame }) {
 }
 
 export default Game;
+
