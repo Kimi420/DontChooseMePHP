@@ -139,6 +139,16 @@ export async function resetMatch(gameId, playerName) {
   return parseJSONResponse(res);
 }
 
+// NEU: Karte einmal pro Runde tauschen
+export async function rerollCard(gameId, playerName, cardId) {
+  const res = await fetch(`${API_URL}/Game_api.php`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ action: 'reroll', gameId, playerName, cardId })
+  });
+  return parseJSONResponse(res);
+}
+
 // NEU: Spieler verlassen
 export async function leaveGame(gameId, playerName) {
   try {

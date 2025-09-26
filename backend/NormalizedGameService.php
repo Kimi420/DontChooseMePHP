@@ -14,6 +14,7 @@ class NormalizedGameService {
     public function __construct() {
         $this->db = Database::getConnection();
         $this->ensureWinsColumn();
+        $this->ensureRerollTable();
     }
 
     // deckId ist optional, Standardwert = null
@@ -402,7 +403,9 @@ class NormalizedGameService {
             'roundScores'=>$roundScores,
             'deckId'=>$deckId,
             'deckName'=>$deckName,
-            'winners'=>$winners
+            'winners'=>$winners,
+            // NEU
+            'roundNumber'=>$state['round_number']
         ];
     }
 
@@ -812,6 +815,9 @@ class NormalizedGameService {
                 $delVotes->execute($roundIds);
                 $delSubs = $this->db->prepare("DELETE FROM g_round_submissions WHERE round_id IN ($in)");
                 $delSubs->execute($roundIds);
+                // NEU: Rerolls löschen
+                $delRerolls = $this->db->prepare("DELETE FROM g_round_rerolls WHERE round_id IN ($in)");
+                $delRerolls->execute($roundIds);
                 $delRounds = $this->db->prepare("DELETE FROM g_rounds WHERE id IN ($in)");
                 $delRounds->execute($roundIds);
             }
@@ -869,6 +875,88 @@ class NormalizedGameService {
             $this->db->query("SELECT wins FROM g_players LIMIT 1");
         } catch (Throwable $e) {
             try { $this->db->exec("ALTER TABLE g_players ADD COLUMN wins INT NOT NULL DEFAULT 0"); } catch (Throwable $e2) { /* ignore */ }
+        }
+    }
+
+    private function ensureRerollTable(): void {
+        try {
+            $this->db->exec("CREATE TABLE IF NOT EXISTS g_round_rerolls (
+                id INT AUTO_INCREMENT PRIMARY KEY,
+                round_id INT NOT NULL,
+                game_player_id INT NOT NULL,
+                old_card_id INT NOT NULL,
+                new_card_id INT NULL,
+                created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+            )");
+        } catch (Throwable $e) { /* ignore */ }
+    }
+
+    /**
+     * Einmal pro Runde darf ein Spieler eine Handkarte gegen eine neue aus dem Deck tauschen.
+     * Storyteller: in storytelling-Phase, bevor Hinweis/Karte gesetzt ist.
+     * Andere Spieler: in selectCards-Phase, solange noch nicht eingereicht wurde.
+     */
+    public function rerollCard(string $gameId, string $playerName, int $cardId): array {
+        $state = $this->internalState($gameId);
+        if (!$state) return ['success'=>false,'message'=>'Spiel nicht gefunden'];
+        $phase = $state['phase'];
+        if (!in_array($phase, ['storytelling','selectCards'], true)) {
+            return ['success'=>false,'message'=>'Reroll in dieser Phase nicht erlaubt'];
+        }
+        $player = $this->playerByName($gameId, $playerName);
+        if (!$player) return ['success'=>false,'message'=>'Spieler nicht gefunden'];
+        $playerDbId = (int)$player['db_id'];
+        $roundId = $state['round_id'];
+        if (!$roundId) return ['success'=>false,'message'=>'Keine aktive Runde'];
+
+        // Phasenregeln
+        if ($phase === 'storytelling') {
+            // Nur Erzähler und nur wenn noch kein Hinweis/Karte gesetzt
+            if (!$player['isStoryteller']) return ['success'=>false,'message'=>'Nur Erzähler darf hier rerollen'];
+            if (!empty($state['hint']) || !empty($state['storyteller_card_id'])) {
+                return ['success'=>false,'message'=>'Reroll nach Hinweis nicht erlaubt'];
+            }
+        } else { // selectCards
+            // Erzähler darf in selectCards nicht rerollen
+            if ($player['isStoryteller']) return ['success'=>false,'message'=>'Erzähler kann jetzt nicht rerollen'];
+            // Kein Reroll nach eigener Einreichung
+            if ($this->submissionExists($roundId, $playerDbId)) return ['success'=>false,'message'=>'Bereits Karte eingereicht'];
+        }
+
+        // Hat der Spieler in dieser Runde bereits gererolled?
+        $stmt = $this->db->prepare("SELECT 1 FROM g_round_rerolls WHERE round_id=? AND game_player_id=?");
+        $stmt->execute([$roundId, $playerDbId]);
+        if ($stmt->fetch()) return ['success'=>false,'message'=>'Reroll bereits genutzt'];
+
+        // Karte muss in der Hand sein
+        if (!$this->cardInHand($playerDbId, $cardId)) return ['success'=>false,'message'=>'Karte nicht in Hand'];
+
+        $this->db->beginTransaction();
+        try {
+            // Alte Karte aus der Hand entfernen (ohne used_in_round zu setzen)
+            $upd = $this->db->prepare("UPDATE g_player_cards SET in_hand=0 WHERE game_player_id=? AND card_id=? AND in_hand=1 LIMIT 1");
+            $upd->execute([$playerDbId, $cardId]);
+            if ($upd->rowCount() === 0) {
+                $this->db->rollBack();
+                return ['success'=>false,'message'=>'Kartenstatus unerwartet'];
+            }
+            // Neue Karte vom Deck ziehen (1 Stück)
+            $pick = $this->db->prepare("SELECT id, card_id FROM g_deck_cards WHERE game_id=? AND consumed=0 ORDER BY position ASC LIMIT 1");
+            $pick->execute([$gameId]);
+            $row = $pick->fetch();
+            if (!$row) { $this->db->rollBack(); return ['success'=>false,'message'=>'Keine Karten mehr im Deck']; }
+            $deckRowId = (int)$row['id']; $newCardId = (int)$row['card_id'];
+            $this->db->prepare("UPDATE g_deck_cards SET consumed=1 WHERE id=?")->execute([$deckRowId]);
+            $this->db->prepare("INSERT INTO g_player_cards (game_player_id, card_id) VALUES (?,?)")->execute([$playerDbId, $newCardId]);
+            // Reroll protokollieren
+            $this->db->prepare("INSERT INTO g_round_rerolls (round_id, game_player_id, old_card_id, new_card_id) VALUES (?,?,?,?)")
+                ->execute([$roundId, $playerDbId, $cardId, $newCardId]);
+            $this->db->commit();
+            return ['success'=>true, 'newCardId'=>$newCardId];
+        } catch (Throwable $e) {
+            $this->db->rollBack();
+            error_log('rerollCard error: '.$e->getMessage());
+            return ['success'=>false,'message'=>'Reroll fehlgeschlagen'];
         }
     }
 }

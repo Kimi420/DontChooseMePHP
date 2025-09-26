@@ -80,6 +80,10 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             if (!isset($data['gameId'],$data['playerName'])) { $res=['success'=>false,'message'=>'Parameter fehlen']; break; }
             $res = $service->leaveGame($data['gameId'], $data['playerName']);
             break;
+        case 'reroll':
+            if (!isset($data['gameId'],$data['playerName'],$data['cardId'])) { $res=['success'=>false,'message'=>'Fehlende Parameter']; break; }
+            $res = $service->rerollCard($data['gameId'], $data['playerName'], (int)$data['cardId']);
+            break;
         case 'start':
             if (!isset($data['gameId'])) { $res=['success'=>false,'message'=>'gameId fehlt']; break; }
             $res = $service->startGame($data['gameId']);

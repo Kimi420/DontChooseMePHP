@@ -1,5 +1,5 @@
 import React, { useEffect, useState, useCallback, useRef } from 'react';
-import { getGameState, giveHint, chooseCard, vote, nextRound, resetMatch } from './api';
+import { getGameState, giveHint, chooseCard, vote, nextRound, resetMatch, rerollCard } from './api';
 import './AppLayout.css';
 import './GameStyle.css';
 import audioManager from './AudioManager';
@@ -12,6 +12,7 @@ function Game({ gameId, playerName, onLeaveGame }) {
     const [error, setError] = useState('');
     const [lastPhase, setLastPhase] = useState(null);
     const [votedCard, setVotedCard] = useState(null);
+    const [usedRerollAtRound, setUsedRerollAtRound] = useState(null); // roundNumber, wenn Reroll in dieser Runde genutzt
     const lastMusicRef = useRef(null);
     const revealDeadlineRef = useRef(null);
     const revealTimeoutRef = useRef(null);
@@ -49,6 +50,14 @@ function Game({ gameId, playerName, onLeaveGame }) {
         setLastPhase(gameState.phase);
     }, [gameState, lastPhase]);
 
+    // Reroll-Limit pro Runde zurücksetzen, wenn neue Runde erkannt wird
+    useEffect(() => {
+        if (!gameState) return;
+        if (usedRerollAtRound !== null && gameState.roundNumber !== usedRerollAtRound) {
+            setUsedRerollAtRound(null);
+        }
+    }, [gameState?.roundNumber]);
+
     useEffect(() => {
         if (!gameState) return;
         let desiredKey = 'lobby';
@@ -80,6 +89,26 @@ function Game({ gameId, playerName, onLeaveGame }) {
         setSending(false);
         if (!res.success) setError(res.message || 'Nächste Runde fehlgeschlagen');
     }, [phase, gameId]);
+
+    // Reroll-Handler
+    const handleReroll = useCallback(async (cardId) => {
+        if (!gameState) return;
+        const round = gameState.roundNumber;
+        if (usedRerollAtRound === round) {
+            setError('Reroll schon genutzt in dieser Runde');
+            return;
+        }
+        setSending(true);
+        const res = await rerollCard(gameId, playerName, cardId);
+        setSending(false);
+        if (!res.success) {
+            setError(res.message || 'Reroll fehlgeschlagen');
+            return;
+        }
+        setUsedRerollAtRound(round);
+        // Direkt neu laden
+        fetchState();
+    }, [gameState, usedRerollAtRound, gameId, playerName, fetchState]);
 
     // Automatischer Rundenwechsel nach 10s in der reveal-Phase (nur Erzähler), ohne setInterval
     useEffect(() => {
@@ -122,6 +151,7 @@ function Game({ gameId, playerName, onLeaveGame }) {
     const hasSubmitted = submissions.some(s => s.playerId === me?.id);
     const votes = gameState.votes || [];
     const hasVoted = votes.some(v => v.playerId === me?.id);
+    const roundNumber = gameState.roundNumber;
 
     const getCardMeta = (id) => (gameState.cardData || []).find(c => parseInt(c.id) === parseInt(id));
 
@@ -156,6 +186,12 @@ function Game({ gameId, playerName, onLeaveGame }) {
         if (!res.success) setError(res.message || 'Abstimmung fehlgeschlagen');
     };
 
+    /* --- Reroll-Bedingungen --- */
+    const canRerollThisRound = usedRerollAtRound !== roundNumber;
+    const allowedRerollStory = (gameState.phase === 'storytelling' && isStoryteller && !gameState.hint && !gameState.storytellerCard);
+    const allowedRerollSelect = (gameState.phase === 'selectCards' && !isStoryteller && !hasSubmitted);
+    const showReroll = canRerollThisRound && (allowedRerollStory || allowedRerollSelect);
+
     /* --- Karten Grids --- */
     const renderHand = (opts = {}) => (
         <div className="hand-grid">
@@ -163,6 +199,7 @@ function Game({ gameId, playerName, onLeaveGame }) {
                 const meta = getCardMeta(cid) || { image: '', title: 'Karte '+cid };
                 const selectable = opts.forceLocked ? false : (phase === 'storytelling' && isStoryteller) || (phase === 'selectCards' && !isStoryteller && !hasSubmitted);
                 const isSel = selectedCard === cid;
+                const canRerollThisCard = showReroll; // pro Karte gleich; Limit pro Runde enforced
                 return (
                     <div key={cid}
                          className={`card-tile ${isSel ? 'selected' : ''} ${!selectable ? 'locked' : ''}`}
@@ -171,6 +208,18 @@ function Game({ gameId, playerName, onLeaveGame }) {
                         {meta.image && <img src={`/${meta.image}`} alt={meta.title} />}
                         {isSel && selectable && <div className="card-check">✔</div>}
                         {hasSubmitted && !isStoryteller && isSel && <div className="card-check">✔</div>}
+                        {canRerollThisCard && (
+                          <div className="card-actions">
+                            <button
+                              type="button"
+                              className="btn outline xs reroll-btn"
+                              onClick={(e)=>{ e.stopPropagation(); if (!sending) handleReroll(cid); }}
+                              disabled={sending}
+                              aria-label="Karte austauschen">
+                              ♻ Reroll
+                            </button>
+                          </div>
+                        )}
                     </div>
                 );
             })}
@@ -272,6 +321,12 @@ function Game({ gameId, playerName, onLeaveGame }) {
                 <div style={{fontSize:'.85rem', display:'flex', flexWrap:'wrap', gap:8, alignItems:'center'}}>
                     <strong>{phaseLabel(phase)}</strong>
                     <span className="phase-tag">{phase}</span>
+                    {(showReroll) && (
+                      <span className="phase-tag" style={{background:'#0d9488'}}>1× Reroll verfügbar</span>
+                    )}
+                    {(usedRerollAtRound === roundNumber) && (
+                      <span className="phase-tag" style={{background:'#6b7280'}}>Reroll genutzt</span>
+                    )}
                 </div>
                 {gameState.hint && <div style={{fontSize:'.8rem', lineHeight:1.3}}>Hinweis: <strong>{gameState.hint}</strong></div>}
                 {isStoryteller && phase === 'storytelling' && <div className="notice">Gib einen Hinweis & wähle eine Karte</div>}

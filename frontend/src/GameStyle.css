@@ -79,3 +79,103 @@
     transition: none;
   }
 }
+
+/* Handkarten-Grid (responsiv) */
+.hand-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(120px, 1fr));
+  gap: 10px;
+}
+
+/* Gemischte Karten (Voting/Reveal) */
+.mixed-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(140px, 1fr));
+  gap: 10px;
+}
+
+/* Kartenkachel */
+.card-tile {
+  position: relative;
+  background: #fff;
+  border: 1px solid rgba(0,0,0,0.08);
+  border-radius: 8px;
+  overflow: hidden;
+  box-shadow: 0 1px 2px rgba(0,0,0,0.04);
+  transition: transform .08s ease, box-shadow .12s ease;
+}
+.card-tile img {
+  display: block;
+  width: 100%;
+  height: auto;
+}
+.card-tile:hover {
+  transform: translateY(-1px);
+  box-shadow: 0 4px 10px rgba(0,0,0,0.08);
+}
+.card-tile.locked { opacity: .75; pointer-events: auto; }
+.card-tile.selected { outline: 2px solid #3b82f6; outline-offset: -2px; }
+
+/* Auswahl-/Statusmarken */
+.card-check {
+  position: absolute;
+  top: 6px;
+  right: 6px;
+  background: rgba(16,185,129,0.9);
+  color: #fff;
+  border-radius: 9999px;
+  width: 24px; height: 24px;
+  display: flex; align-items: center; justify-content: center;
+  font-weight: 700;
+  font-size: 14px;
+}
+.card-badge {
+  position: absolute;
+  top: 6px; left: 6px;
+  background: rgba(0,0,0,0.6);
+  color: #fff;
+  padding: 2px 6px;
+  border-radius: 6px;
+  font-size: .65rem;
+}
+.card-badge.self-badge { background: rgba(239,68,68,0.85); }
+
+/* Meta-Bar in Reveal */
+.card-meta-bar {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  padding: 8px;
+  background: #fafafa;
+  border-top: 1px solid rgba(0,0,0,0.06);
+  font-size: .8rem;
+}
+.card-meta-bar .owner-line.story-owner { color: #b45309; font-weight: 600; }
+
+/* Aktionen unter Karte (z. B. Reroll) */
+.card-actions {
+  display: flex;
+  justify-content: center;
+  padding: 6px 8px;
+  gap: 6px;
+}
+
+/* Kleine Buttons (für mobile) */
+.btn.xs {
+  font-size: .7rem;
+  line-height: 1.2;
+  padding: 6px 8px;
+  border-radius: 6px;
+}
+.btn.outline.xs {
+  background: transparent;
+  border: 1px solid rgba(0,0,0,0.2);
+}
+.reroll-btn { white-space: nowrap; }
+
+/* Mobile Verbesserungen */
+@media (max-width: 480px) {
+  .hand-grid { grid-template-columns: repeat(2, 1fr); }
+  .mixed-grid { grid-template-columns: repeat(2, 1fr); }
+  .btn.xs { padding: 6px 6px; font-size: .75rem; }
+}
