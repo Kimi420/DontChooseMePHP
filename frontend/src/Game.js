@@ -379,10 +379,45 @@ function Game({ gameId, playerName, onLeaveGame }) {
                 voteMap[v.cardId].push(v.playerId);
             });
 
+            // Countdown/Progress (nur für Erzähler sichtbar)
+            const now = Date.now();
+            const deadline = revealDeadlineRef.current;
+            const remainMs = deadline ? Math.max(0, deadline - now) : 0;
+            const remainSec = deadline ? Math.ceil(remainMs / 1000) : null;
+            const doneRatio = deadline ? Math.min(1, Math.max(0, (10000 - remainMs) / 10000)) : 0;
+
             return (
                 <div className="stack">
                     {gameState.hint && <div className="hint-banner"><span className="label">Hinweis</span>{gameState.hint}</div>}
                     <h3 style={{margin:'0 0 4px', fontSize:'.9rem', letterSpacing:'.5px', textTransform:'uppercase'}}>Auflösung</h3>
+
+                    {isStoryteller && deadline && (
+                        <div className="auto-next" style={{background:'rgba(59,130,246,0.12)', border:'1px solid rgba(59,130,246,0.35)', borderRadius:8, padding:'8px 10px', margin:'6px 0 8px'}}>
+                            <div style={{display:'flex', justifyContent:'space-between', alignItems:'center', marginBottom:6}}>
+                                <div style={{fontWeight:600, fontSize:'.85rem'}}>Nächste Runde in {remainSec}s</div>
+                                <button className="btn" disabled={sending} onClick={handleNextRoundWithTimeout}>Jetzt starten</button>
+                            </div>
+                            <div role="progressbar" aria-valuemin={0} aria-valuemax={10} aria-valuenow={remainSec || 0}
+                                 style={{height:8, background:'rgba(59,130,246,0.25)', borderRadius:9999, overflow:'hidden'}}>
+                                <div style={{height:'100%', width: `${Math.round(doneRatio*100)}%`, background:'#3b82f6', transition:'width .3s ease'}} />
+                            </div>
+                        </div>
+                    )}
+
+                    <details style={{margin:'6px 0 10px'}}>
+                        <summary style={{cursor:'pointer', userSelect:'none'}}>ℹ️ Punkteverteilung – so funktioniert's</summary>
+                        <div style={{padding:'8px 10px', background:'rgba(16,185,129,0.08)', border:'1px solid rgba(16,185,129,0.35)', borderRadius:8, marginTop:8}}>
+                            <ul style={{margin:'4px 0 8px 18px'}}>
+                                <li>Erzähler: +3 Punkte, wenn einige (aber nicht alle) die richtige Karte wählen. 0 Punkte, wenn alle oder keiner richtig liegt.</li>
+                                <li>Richtige Wahl: +3 Punkte pro Spieler, der die Erzähler-Karte korrekt wählt.</li>
+                                <li>Täuschpunkte: +1 Punkt pro Stimme, die auf deine (falsche) Karte fällt.</li>
+                            </ul>
+                            <div style={{fontSize:'.85rem', opacity:.9}}>
+                                Beispiel: Spieler A ist Erzähler. Wenn B und C richtig raten, D aber nicht → A +3, B +3, C +3. Bekommt D eine oder mehrere Stimmen auf seine Karte, erhält er zusätzlich +1 pro Stimme.
+                            </div>
+                        </div>
+                    </details>
+
                     {renderMixed(false)}
                     {/* Punkteverteilung anzeigen */}
                     {Array.isArray(gameState.roundScores) && gameState.roundScores.length > 0 && (
