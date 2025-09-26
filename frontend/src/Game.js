@@ -12,7 +12,7 @@ function Game({ gameId, playerName, onLeaveGame }) {
     const [lastPhase, setLastPhase] = useState(null);
     const [votedCard, setVotedCard] = useState(null);
     const lastMusicRef = useRef(null);
-    const [revealTimer, setRevealTimer] = useState(10);
+    const revealDeadlineRef = useRef(null);
     const revealTimeoutRef = useRef(null);
 
     const fetchState = useCallback(() => {
@@ -53,11 +53,13 @@ function Game({ gameId, playerName, onLeaveGame }) {
         else if (p === 'reveal') { desiredKey = 'lobby'; track = 'sounds/lobby.mp3'; }
         else if (p === 'finished') { desiredKey = 'lobby'; track = 'sounds/lobby.mp3'; }
 
-        // Robuster: nur nichts tun, wenn derselbe Key aktiv ist UND wirklich gerade Musik spielt UND Autoplay nicht blockiert ist
+        // Nur überspringen, wenn derselbe Key aktiv ist, Musik wirklich spielt und kein Autoplay-Block vorliegt
         if (lastMusicRef.current === desiredKey && audioManager.isPlaying && audioManager.isPlaying() && !audioManager.autoplayBlocked) return;
 
+        // Wechsel über requestBackgroundMusic, damit bei Autoplay-Block erneut versucht wird
         audioManager.requestBackgroundMusic(track, true, desiredKey === 'lobby' ? 800 : 600);
 
+        // Optionaler Effekt beim echten Phasenwechsel
         if (lastMusicRef.current && lastMusicRef.current !== desiredKey) {
             audioManager.playEffect('sounds/phase-change.mp3', { volumeMultiplier: 0.6 }).catch(()=>{});
         }
@@ -118,34 +120,32 @@ function Game({ gameId, playerName, onLeaveGame }) {
         if (!res.success) setError(res.message || 'Nächste Runde fehlgeschlagen');
     }, [gameState?.phase, gameId]);
 
-    // Timer-Logik für die reveal-Phase (nur für Erzähler)
+    // Automatischer Rundenwechsel nach 10s in der reveal-Phase (nur Erzähler), ohne setInterval
     useEffect(() => {
         if (gameState?.phase === 'reveal' && isStoryteller) {
-            setRevealTimer(10);
-            if (revealTimeoutRef.current) clearInterval(revealTimeoutRef.current);
-            revealTimeoutRef.current = setInterval(() => {
-                setRevealTimer(prev => {
-                    if (prev <= 1) {
-                        clearInterval(revealTimeoutRef.current);
-                        handleNextRound();
-                        return 0;
-                    }
-                    return prev - 1;
-                });
-            }, 1000);
-            return () => clearInterval(revealTimeoutRef.current);
+            // Reset bestehender Timeout
+            if (revealTimeoutRef.current) clearTimeout(revealTimeoutRef.current);
+            // Deadline in 10s setzen
+            revealDeadlineRef.current = Date.now() + 10000;
+            // Einmaligen Timeout starten
+            revealTimeoutRef.current = setTimeout(() => {
+                handleNextRound();
+            }, 10000);
+            // Cleanup für Phase-Wechsel
+            return () => { if (revealTimeoutRef.current) clearTimeout(revealTimeoutRef.current); };
         } else {
-            if (revealTimeoutRef.current) clearInterval(revealTimeoutRef.current);
+            // Beim Verlassen der reveal-Phase aufräumen
+            if (revealTimeoutRef.current) clearTimeout(revealTimeoutRef.current);
+            revealTimeoutRef.current = null;
+            revealDeadlineRef.current = null;
         }
     }, [gameState?.phase, isStoryteller, handleNextRound]);
 
-    // Cleanup bei Unmount (Sicherheitsnetz)
-    useEffect(() => {
-        return () => { if (revealTimeoutRef.current) clearInterval(revealTimeoutRef.current); };
-    }, []);
-
-    const handleNextRoundWithTimer = useCallback(async () => {
-        if (revealTimeoutRef.current) clearInterval(revealTimeoutRef.current);
+    // Klick-Handler, der den Timeout vorher abbucht
+    const handleNextRoundWithTimeout = useCallback(async () => {
+        if (revealTimeoutRef.current) clearTimeout(revealTimeoutRef.current);
+        revealTimeoutRef.current = null;
+        revealDeadlineRef.current = null;
         await handleNextRound();
     }, [handleNextRound]);
 
@@ -455,10 +455,13 @@ function Game({ gameId, playerName, onLeaveGame }) {
             actions.push(<button key="info" className="btn outline" disabled>Wähle oben eine Karte</button>);
         }
         if (phase === 'reveal' && isStoryteller) {
+            const secsLeft = revealDeadlineRef.current ? Math.max(0, Math.ceil((revealDeadlineRef.current - Date.now()) / 1000)) : null;
             actions.push(
                 <>
-                    <button key="next" className="btn" disabled={sending} onClick={handleNextRoundWithTimer}>➡️ Nächste Runde</button>
-                    <span style={{marginLeft:12, fontWeight:'bold', color:'#c55'}}>{revealTimer > 0 && `Automatisch in ${revealTimer}s`}</span>
+                    <button key="next" className="btn" disabled={sending} onClick={handleNextRoundWithTimeout}>➡️ Nächste Runde</button>
+                    {secsLeft !== null && secsLeft > 0 && (
+                        <span key="count" style={{marginLeft:12, fontWeight:'bold', color:'#c55'}}>Automatisch in {secsLeft}s</span>
+                    )}
                 </>
             );
         }
