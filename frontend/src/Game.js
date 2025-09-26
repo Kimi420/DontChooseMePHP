@@ -53,8 +53,8 @@ function Game({ gameId, playerName, onLeaveGame }) {
     else if (p === 'reveal') { desiredKey = 'lobby'; track = 'sounds/lobby.mp3'; }
     else if (p === 'finished') { desiredKey = 'lobby'; track = 'sounds/lobby.mp3'; }
 
-    // Wenn schon derselbe Key aktiv und kein blockiertes Pending -> nichts tun
-    if (lastMusicRef.current === desiredKey && !audioManager.autoplayBlocked) return;
+    // Wenn schon derselbe Key aktiv, Track spielt und kein blockiertes Pending -> nichts tun
+    if (lastMusicRef.current === desiredKey && audioManager.isPlaying() && !audioManager.autoplayBlocked) return;
 
     // Wechsel über requestBackgroundMusic, damit bei Autoplay-Block erneut versucht wird
     audioManager.requestBackgroundMusic(track, true, desiredKey === 'lobby' ? 800 : 600);
@@ -112,13 +112,13 @@ function Game({ gameId, playerName, onLeaveGame }) {
     if (!res.success) setError(res.message || 'Abstimmung fehlgeschlagen');
   };
 
-  const handleNextRound = async () => {
+  const handleNextRound = useCallback(async () => {
     if (phase !== 'reveal') return;
     setSending(true);
     const res = await nextRound(gameId);
     setSending(false);
     if (!res.success) setError(res.message || 'Nächste Runde fehlgeschlagen');
-  };
+  }, [phase, gameId]);
 
   // Timer-Logik für die reveal-Phase (nur für Erzähler)
   useEffect(() => {
@@ -139,13 +139,18 @@ function Game({ gameId, playerName, onLeaveGame }) {
     } else {
       if (revealTimeoutRef.current) clearInterval(revealTimeoutRef.current);
     }
-  }, [phase, isStoryteller]);
+  }, [phase, isStoryteller, handleNextRound]);
+
+  // Cleanup bei Unmount
+  useEffect(() => {
+    return () => { if (revealTimeoutRef.current) clearInterval(revealTimeoutRef.current); };
+  }, []);
 
   // Timer auch abbrechen, wenn der Erzähler manuell klickt
-  const handleNextRoundWithTimer = async () => {
+  const handleNextRoundWithTimer = useCallback(async () => {
     if (revealTimeoutRef.current) clearInterval(revealTimeoutRef.current);
     await handleNextRound();
-  };
+  }, [handleNextRound]);
 
   /* --- Karten Grids --- */
   const renderHand = (opts = {}) => (
