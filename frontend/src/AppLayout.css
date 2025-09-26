@@ -170,6 +170,7 @@ body { margin:0; font-family: system-ui,-apple-system,Segoe UI,Roboto,Ubuntu,can
   width: min(380px, 92vw);
   max-height: min(50vh, 420px);
   overflow: auto;
+  background: rgba(17,24,39,0.92); /* dunkler, weniger transparent für bessere Lesbarkeit */
 }
 @media (max-width: 600px) {
   .global-info { left: 10px; bottom: calc(var(--safe-bottom) + 10px); }
@@ -199,7 +200,7 @@ body { margin:0; font-family: system-ui,-apple-system,Segoe UI,Roboto,Ubuntu,can
   top: calc(100% + 8px);
   left: 0;
   width: min(360px, 85vw);
-  background: var(--color-surface);
+  background: rgba(17,24,39,0.92); /* vorher: var(--color-surface) */
   border: 1px solid var(--color-border);
   border-radius: var(--radius-md);
   padding: 12px 14px;
