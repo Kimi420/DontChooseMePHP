@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { createGame, joinGame, getGameState, startGame, rejoinGame } from './api';
+import { createGame, joinGame, getGameState, startGame, rejoinGame, leaveGame, leaveGameBeacon } from './api';
 import Lobby from './Lobby';
 import Game from './Game';
 import VolumeControl from './components/VolumeControl';
@@ -110,9 +110,20 @@ function App() {
         } catch(e) { /* ignore */ }
     }, []);
 
+    // Beacon beim Tab-Schließen/Reload
+    useEffect(() => {
+        const handleBeforeUnload = () => {
+            if (inSession && gameId && playerName) {
+                leaveGameBeacon(gameId, playerName);
+            }
+        };
+        window.addEventListener('beforeunload', handleBeforeUnload);
+        return () => window.removeEventListener('beforeunload', handleBeforeUnload);
+    }, [inSession, gameId, playerName]);
+
     const persistSession = (gid, name) => {
-        try { localStorage.setItem('dcm_session', JSON.stringify({ gameId: gid, playerName: name })); } catch(_){}
-    };
+        try { localStorage.setItem('dcm_session', JSON.stringify({ gameId: gid, playerName: name })); } catch(_){}}
+    ;
     const clearSession = () => { try { localStorage.removeItem('dcm_session'); } catch(_){} };
 
     const handleJoin = async (roomId, name) => {
@@ -190,7 +201,9 @@ function App() {
         persistSession(newGameId, name);
     };
 
-    const handleLeaveGame = () => {
+    const handleLeaveGame = async () => {
+        const gid = gameId; const name = playerName;
+        // Sofort lokal aufräumen, um UI schnell umzuschalten
         setInSession(false);
         setGameId('');
         setPlayers([]);
@@ -198,6 +211,10 @@ function App() {
         setDeckId(null); setDeckName(null);
         audioManager.requestBackgroundMusic('sounds/lobby.mp3', true, 1000);
         clearSession();
+        // Backend informieren (best-effort)
+        if (gid && name) {
+            try { await leaveGame(gid, name); } catch(_) {}
+        }
     };
 
     const handleVolumeChange = (newVolume) => {

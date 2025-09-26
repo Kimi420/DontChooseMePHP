@@ -76,6 +76,10 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             if (!isset($data['gameId'],$data['playerName'])) { $res=['success'=>false,'message'=>'Parameter fehlen']; break; }
             $res = $service->rejoinGame($data['gameId'], $data['playerName']);
             break;
+        case 'leave':
+            if (!isset($data['gameId'],$data['playerName'])) { $res=['success'=>false,'message'=>'Parameter fehlen']; break; }
+            $res = $service->leaveGame($data['gameId'], $data['playerName']);
+            break;
         case 'start':
             if (!isset($data['gameId'])) { $res=['success'=>false,'message'=>'gameId fehlt']; break; }
             $res = $service->startGame($data['gameId']);

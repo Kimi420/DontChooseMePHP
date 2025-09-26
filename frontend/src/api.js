@@ -138,3 +138,30 @@ export async function resetMatch(gameId, playerName) {
   });
   return parseJSONResponse(res);
 }
+
+// NEU: Spieler verlassen
+export async function leaveGame(gameId, playerName) {
+  try {
+    const res = await fetch(`${API_URL}/Game_api.php`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ action: 'leave', gameId, playerName })
+    });
+    return parseJSONResponse(res);
+  } catch (e) {
+    return { success: false, message: 'Leave fehlgeschlagen' };
+  }
+}
+
+// NEU: Beacon fürs Tab-Schließen/Reload, feuert ohne Response-Handling
+export function leaveGameBeacon(gameId, playerName) {
+  if (!gameId || !playerName) return false;
+  try {
+    if (navigator && typeof navigator.sendBeacon === 'function') {
+      const payload = JSON.stringify({ action: 'leave', gameId, playerName });
+      const blob = new Blob([payload], { type: 'application/json' });
+      return navigator.sendBeacon(`${API_URL}/Game_api.php`, blob);
+    }
+  } catch (_) { /* ignore */ }
+  return false;
+}

@@ -406,7 +406,157 @@ class NormalizedGameService {
         ];
     }
 
+    /**
+     * Spieler verlässt Lobby/Spiel. Entfernt ihn vollständig und passt ggf. Phase/Storyteller an.
+     */
+    public function leaveGame(string $gameId, string $playerName): array {
+        $player = $this->playerByName($gameId, $playerName);
+        if (!$player) {
+            // Idempotent: Spieler ist bereits nicht (mehr) in diesem Spiel
+            return ['success' => true];
+        }
+        $playerDbId = (int)$player['db_id'];
+        $playerSeat = (int)$player['seat'];
+        $state = $this->internalState($gameId);
+        $this->db->beginTransaction();
+        try {
+            // Abhängige Daten des Spielers entfernen
+            $this->db->prepare("DELETE FROM g_player_cards WHERE game_player_id=?")->execute([$playerDbId]);
+            if ($state && $state['round_id']) {
+                $rid = (int)$state['round_id'];
+                $this->db->prepare("DELETE FROM g_round_votes WHERE round_id=? AND voter_player_id=?")->execute([$rid, $playerDbId]);
+                $this->db->prepare("DELETE FROM g_round_submissions WHERE round_id=? AND game_player_id=?")->execute([$rid, $playerDbId]);
+            }
+
+            // Aktuelle Spielparameter lesen
+            $stmtST = $this->db->prepare("SELECT storyteller_player_id, phase, current_round FROM g_games WHERE id=?");
+            $stmtST->execute([$gameId]);
+            $rowG = $stmtST->fetch();
+            $storyDbId = $rowG && $rowG['storyteller_player_id'] !== null ? (int)$rowG['storyteller_player_id'] : null;
+            $phase = $rowG ? (string)$rowG['phase'] : 'waiting';
+            $roundNumber = $rowG ? (int)$rowG['current_round'] : 0;
+            $isStoryteller = ($storyDbId !== null) && ($storyDbId === $playerDbId);
+
+            // Spieler entfernen
+            $this->db->prepare("DELETE FROM g_players WHERE id=?")->execute([$playerDbId]);
+
+            // Verbleibende Spieler ermitteln (Reihenfolge vor Reseating)
+            $playersLeftBefore = $this->fetchPlayers($gameId);
+            $remainingCount = count($playersLeftBefore);
+
+            if ($remainingCount === 0) {
+                // Kein Spieler mehr im Spiel -> zurück in Wartezustand
+                $this->db->prepare("UPDATE g_games SET phase='waiting', current_round=0, storyteller_player_id=NULL WHERE id=?")->execute([$gameId]);
+                $this->db->commit();
+                return ['success' => true];
+            }
+
+            // NEU: Wenn <= 2 Spieler übrig, Spiel beenden und in Lobby zurücksetzen
+            if ($remainingCount <= 2) {
+                // Seats zuerst komprimieren, damit ein gültiger Host (seat 1) existiert
+                $this->reseatPlayers($gameId);
+                // Erst aktuelle Änderungen abschließen, dann Reset durchführen
+                $this->db->commit();
+                $this->resetGameForNewMatch($gameId);
+                return ['success' => true];
+            }
+
+            // Bestimme potentiellen nächsten Erzähler anhand der Reihenfolge vor Reseating
+            $nextStoryDbId = null;
+            if ($isStoryteller && $phase !== 'waiting') {
+                // Finde den ersten Spieler mit seat > alter seat, sonst den ersten in der Liste
+                $candidate = null; $first = null;
+                foreach ($playersLeftBefore as $p) {
+                    if ($first === null) $first = (int)$p['db_id'];
+                    if ((int)$p['seat'] > $playerSeat) { $candidate = (int)$p['db_id']; break; }
+                }
+                $nextStoryDbId = $candidate !== null ? $candidate : $first;
+            }
+
+            // Seats aufräumen, damit seat=1..n (wichtig für Host/Start)
+            $this->reseatPlayers($gameId);
+
+            // Sonderfall: Erzähler verlässt ein laufendes Spiel
+            if ($isStoryteller && $phase !== 'waiting') {
+                // Falls noch kein Hinweis/Karte gesetzt: nur Erzähler in aktueller Runde ersetzen
+                if ($state && $state['round_id'] && $phase === 'storytelling' && empty($state['hint']) && empty($state['storyteller_card_id'])) {
+                    if ($nextStoryDbId !== null) {
+                        $this->db->prepare("UPDATE g_rounds SET storyteller_player_id=? WHERE id=?")->execute([$nextStoryDbId, $state['round_id']]);
+                        $this->db->prepare("UPDATE g_games SET storyteller_player_id=? WHERE id=?")->execute([$nextStoryDbId, $gameId]);
+                    }
+                    $this->db->commit();
+                    return ['success' => true];
+                }
+                // Sonst: Runde abbrechen und neue starten
+                if ($roundNumber > 0 && $state && $state['round_id']) {
+                    // Falls nach dem Reseating kein expliziter nextStory vorhanden ist, nimm den aktuellen seat 1
+                    if ($nextStoryDbId === null) {
+                        $stmtFirst = $this->db->prepare("SELECT id FROM g_players WHERE game_id=? ORDER BY seat ASC LIMIT 1");
+                        $stmtFirst->execute([$gameId]);
+                        $rowFirst = $stmtFirst->fetch();
+                        $nextStoryDbId = $rowFirst ? (int)$rowFirst['id'] : null;
+                    }
+                    if ($nextStoryDbId !== null) {
+                        $nextRoundNo = ((int)$state['round_number']) + 1;
+                        $stmtIns = $this->db->prepare("INSERT INTO g_rounds (game_id, round_number, storyteller_player_id) VALUES (?,?,?)");
+                        $stmtIns->execute([$gameId, $nextRoundNo, $nextStoryDbId]);
+                        $this->db->prepare("UPDATE g_games SET phase='storytelling', storyteller_player_id=?, current_round=? WHERE id=?")
+                            ->execute([$nextStoryDbId, $nextRoundNo, $gameId]);
+                        $this->replenishHands($gameId);
+                    }
+                } else {
+                    // Noch keine Runde aktiv -> nur Erzähler setzen
+                    if ($nextStoryDbId !== null) {
+                        $this->db->prepare("UPDATE g_games SET storyteller_player_id=? WHERE id=?")->execute([$nextStoryDbId, $gameId]);
+                    }
+                }
+                $this->db->commit();
+                return ['success' => true];
+            }
+
+            // Normales Verlassen (kein Erzähler): prüfen, ob dadurch Phasenübergänge möglich werden
+            if ($phase === 'selectCards') {
+                $state2 = $this->internalState($gameId);
+                if ($state2 && $state2['round_id'] && $this->allSubmissionsDone($gameId, $state2)) {
+                    $this->db->prepare("UPDATE g_rounds SET phase='voting' WHERE id=?")->execute([$state2['round_id']]);
+                    $this->db->prepare("UPDATE g_games SET phase='voting' WHERE id=?")->execute([$gameId]);
+                }
+            } elseif ($phase === 'voting') {
+                $state2 = $this->internalState($gameId);
+                if ($state2 && $state2['round_id'] && $this->allVotesDone($gameId, $state2)) {
+                    $this->db->prepare("UPDATE g_rounds SET phase='reveal', closed_at=NOW() WHERE id=?")->execute([$state2['round_id']]);
+                    $this->db->prepare("UPDATE g_games SET phase='reveal' WHERE id=?")->execute([$gameId]);
+                    $this->scoreRound($state2);
+                }
+            }
+
+            $this->db->commit();
+            return ['success' => true];
+        } catch (Throwable $e) {
+            $this->db->rollBack();
+            error_log('leaveGame error: ' . $e->getMessage());
+            return ['success' => false, 'message' => 'Leave fehlgeschlagen'];
+        }
+    }
+
     /* ---------------- interne Hilfen ---------------- */
+
+    private function reseatPlayers(string $gameId): void {
+        // Seats auf 1..n komprimieren (stabile Reihenfolge nach seat ASC)
+        $stmt = $this->db->prepare("SELECT id, seat FROM g_players WHERE game_id=? ORDER BY seat ASC, id ASC");
+        $stmt->execute([$gameId]);
+        $rows = $stmt->fetchAll();
+        $newSeat = 1;
+        $upd = $this->db->prepare("UPDATE g_players SET seat=? WHERE id=?");
+        foreach ($rows as $r) {
+            $currentSeat = (int)$r['seat'];
+            $pid = (int)$r['id'];
+            if ($currentSeat !== $newSeat) {
+                $upd->execute([$newSeat, $pid]);
+            }
+            $newSeat++;
+        }
+    }
 
     private function generateGameId(int $length=6): string {
         $chars = '0123456789ABCDEFGHIJKLMNOPQRSTUVWXYZ';
