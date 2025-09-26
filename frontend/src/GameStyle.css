@@ -25,7 +25,7 @@
 }
 .auto-next-bar-fill {
   height: 100%;
-  width: 0%;
+  width: 0;
   background: #3b82f6;
   transition: width .3s ease;
 }
@@ -79,4 +79,3 @@
     transition: none;
   }
 }
-

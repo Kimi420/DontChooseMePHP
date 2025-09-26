@@ -404,20 +404,6 @@ function Game({ gameId, playerName, onLeaveGame }) {
                         </div>
                     )}
 
-                    <details className="reveal-info">
-                        <summary className="reveal-info-summary">ℹ️ Punkteverteilung – so funktioniert's</summary>
-                        <div className="reveal-info-body">
-                            <ul>
-                                <li>Erzähler: +3 Punkte, wenn einige (aber nicht alle) die richtige Karte wählen. 0 Punkte, wenn alle oder keiner richtig liegt.</li>
-                                <li>Richtige Wahl: +3 Punkte pro Spieler, der die Erzähler-Karte korrekt wählt.</li>
-                                <li>Täuschpunkte: +1 Punkt pro Stimme, die auf deine (falsche) Karte fällt.</li>
-                            </ul>
-                            <div className="reveal-info-example">
-                                Beispiel: Spieler A ist Erzähler. Wenn B und C richtig raten, D aber nicht → A +3, B +3, C +3. Bekommt D eine oder mehrere Stimmen auf seine Karte, erhält er zusätzlich +1 pro Stimme.
-                            </div>
-                        </div>
-                    </details>
-
                     {renderMixed(false)}
                     {/* Punkteverteilung anzeigen */}
                     {Array.isArray(gameState.roundScores) && gameState.roundScores.length > 0 && (
