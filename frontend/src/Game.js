@@ -15,6 +15,11 @@ function Game({ gameId, playerName, onLeaveGame }) {
     const revealDeadlineRef = useRef(null);
     const revealTimeoutRef = useRef(null);
 
+    // Früh abgeleitete Werte für Hooks (können null sein)
+    const phase = gameState?.phase;
+    const meEarly = gameState?.players?.find(p => p.name === playerName);
+    const isStorytellerEarly = !!meEarly?.isStoryteller;
+
     const fetchState = useCallback(() => {
         getGameState(gameId, playerName).then(state => {
             if (state && state.success) {
@@ -45,13 +50,12 @@ function Game({ gameId, playerName, onLeaveGame }) {
 
     useEffect(() => {
         if (!gameState) return;
-        const p = gameState.phase;
         let desiredKey = 'lobby';
         let track = 'sounds/lobby.mp3';
-        if (p === 'storytelling') { desiredKey = 'storyteller'; track = 'sounds/storyteller.mp3'; }
-        else if (p === 'voting') { desiredKey = 'voting'; track = 'sounds/voting.mp3'; }
-        else if (p === 'reveal') { desiredKey = 'lobby'; track = 'sounds/lobby.mp3'; }
-        else if (p === 'finished') { desiredKey = 'lobby'; track = 'sounds/lobby.mp3'; }
+        if (phase === 'storytelling') { desiredKey = 'storyteller'; track = 'sounds/storyteller.mp3'; }
+        else if (phase === 'voting') { desiredKey = 'voting'; track = 'sounds/voting.mp3'; }
+        else if (phase === 'reveal') { desiredKey = 'lobby'; track = 'sounds/lobby.mp3'; }
+        else if (phase === 'finished') { desiredKey = 'lobby'; track = 'sounds/lobby.mp3'; }
 
         // Nur überspringen, wenn derselbe Key aktiv ist, Musik wirklich spielt und kein Autoplay-Block vorliegt
         if (lastMusicRef.current === desiredKey && audioManager.isPlaying && audioManager.isPlaying() && !audioManager.autoplayBlocked) return;
@@ -65,11 +69,50 @@ function Game({ gameId, playerName, onLeaveGame }) {
         }
 
         lastMusicRef.current = desiredKey;
-    }, [gameState?.phase]);
+    }, [gameState?.phase, phase]);
 
+    // Handler stabil und vor Early-Return
+    const handleNextRound = useCallback(async () => {
+        if (phase !== 'reveal') return;
+        setSending(true);
+        const res = await nextRound(gameId);
+        setSending(false);
+        if (!res.success) setError(res.message || 'Nächste Runde fehlgeschlagen');
+    }, [phase, gameId]);
+
+    // Automatischer Rundenwechsel nach 10s in der reveal-Phase (nur Erzähler), ohne setInterval
+    useEffect(() => {
+        if (phase === 'reveal' && isStorytellerEarly) {
+            // Reset bestehender Timeout
+            if (revealTimeoutRef.current) clearTimeout(revealTimeoutRef.current);
+            // Deadline in 10s setzen
+            revealDeadlineRef.current = Date.now() + 10000;
+            // Einmaligen Timeout starten
+            revealTimeoutRef.current = setTimeout(() => {
+                handleNextRound();
+            }, 10000);
+            // Cleanup für Phase-Wechsel
+            return () => { if (revealTimeoutRef.current) clearTimeout(revealTimeoutRef.current); };
+        } else {
+            // Beim Verlassen der reveal-Phase aufräumen
+            if (revealTimeoutRef.current) clearTimeout(revealTimeoutRef.current);
+            revealTimeoutRef.current = null;
+            revealDeadlineRef.current = null;
+        }
+    }, [phase, isStorytellerEarly, handleNextRound]);
+
+    // Klick-Handler, der den Timeout vorher abbucht
+    const handleNextRoundWithTimeout = useCallback(async () => {
+        if (revealTimeoutRef.current) clearTimeout(revealTimeoutRef.current);
+        revealTimeoutRef.current = null;
+        revealDeadlineRef.current = null;
+        await handleNextRound();
+    }, [handleNextRound]);
+
+    // Frühzeitiger Ladebildschirm NACH allen Hooks (Hooks-Reihenfolge bleibt stabil)
     if (!gameState) return <div style={{padding:20}}>Spielstatus wird geladen...</div>;
 
-    const phase = gameState.phase;
+    // Ab hier nur noch reine Berechnungen/Render
     const me = gameState.players.find(p => p.name === playerName);
     const isStoryteller = me?.isStoryteller;
     const isHost = me?.id === 1; // Host hat seat 1
@@ -92,9 +135,9 @@ function Game({ gameId, playerName, onLeaveGame }) {
     };
 
     const handleSelectHandCard = async (cardId) => {
-        if (phase === 'storytelling' && isStoryteller) {
+        if (gameState.phase === 'storytelling' && isStoryteller) {
             setSelectedCard(cardId);
-        } else if (phase === 'selectCards' && !isStoryteller && !hasSubmitted) {
+        } else if (gameState.phase === 'selectCards' && !isStoryteller && !hasSubmitted) {
             setSending(true);
             const res = await chooseCard(gameId, playerName, cardId);
             setSending(false);
@@ -104,50 +147,13 @@ function Game({ gameId, playerName, onLeaveGame }) {
     };
 
     const handleVote = async (cardId) => {
-        if (isStoryteller || hasVoted || phase !== 'voting') return;
+        if (isStoryteller || hasVoted || gameState.phase !== 'voting') return;
         setVotedCard(cardId);
         setSending(true);
         const res = await vote(gameId, playerName, cardId);
         setSending(false);
         if (!res.success) setError(res.message || 'Abstimmung fehlgeschlagen');
     };
-
-    const handleNextRound = useCallback(async () => {
-        if (gameState?.phase !== 'reveal') return;
-        setSending(true);
-        const res = await nextRound(gameId);
-        setSending(false);
-        if (!res.success) setError(res.message || 'Nächste Runde fehlgeschlagen');
-    }, [gameState?.phase, gameId]);
-
-    // Automatischer Rundenwechsel nach 10s in der reveal-Phase (nur Erzähler), ohne setInterval
-    useEffect(() => {
-        if (gameState?.phase === 'reveal' && isStoryteller) {
-            // Reset bestehender Timeout
-            if (revealTimeoutRef.current) clearTimeout(revealTimeoutRef.current);
-            // Deadline in 10s setzen
-            revealDeadlineRef.current = Date.now() + 10000;
-            // Einmaligen Timeout starten
-            revealTimeoutRef.current = setTimeout(() => {
-                handleNextRound();
-            }, 10000);
-            // Cleanup für Phase-Wechsel
-            return () => { if (revealTimeoutRef.current) clearTimeout(revealTimeoutRef.current); };
-        } else {
-            // Beim Verlassen der reveal-Phase aufräumen
-            if (revealTimeoutRef.current) clearTimeout(revealTimeoutRef.current);
-            revealTimeoutRef.current = null;
-            revealDeadlineRef.current = null;
-        }
-    }, [gameState?.phase, isStoryteller, handleNextRound]);
-
-    // Klick-Handler, der den Timeout vorher abbucht
-    const handleNextRoundWithTimeout = useCallback(async () => {
-        if (revealTimeoutRef.current) clearTimeout(revealTimeoutRef.current);
-        revealTimeoutRef.current = null;
-        revealDeadlineRef.current = null;
-        await handleNextRound();
-    }, [handleNextRound]);
 
     /* --- Karten Grids --- */
     const renderHand = (opts = {}) => (
