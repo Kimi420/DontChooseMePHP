@@ -241,3 +241,8 @@
 .game-layout .card-meta-bar {
   position: static !important;
 }
+
+/* Karten im Game-Layout: hochkant 3:4 (Breite bleibt, Höhe wächst) */
+.game-layout {
+  --card-ratio: 3 / 4;
+}
