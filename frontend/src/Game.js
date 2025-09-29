@@ -272,15 +272,18 @@ function Game({ gameId, playerName, onLeaveGame }) {
                     }
 
                     return (
-                        <div key={cid}
-                             className={`card-tile ${isMyVote ? 'selected' : ''} ${disabledSelf ? 'locked self-lock' : ''}`}
-                             onClick={() => canVote && handleVote(cid)}
-                             title={disabledSelf ? 'Eigene Karte – nicht wählbar' : meta.title}>
-                            <div className="card-media">
-                                {meta.image && <img src={`/${meta.image}`} alt={meta.title} />}
-                                {isMyVote && <div className="card-check">🗳</div>}
-                                {disabledSelf && <div className="card-badge self-badge">Eigene</div>}
-                                {phase === 'reveal' && isStoryCard && <div className="card-badge" style={{background:'rgba(255,215,0,0.75)'}}>Erzähler</div>}
+                        <div key={cid} className="card-item">
+                            <div
+                                className={`card-tile ${isMyVote ? 'selected' : ''} ${disabledSelf ? 'locked self-lock' : ''}`}
+                                onClick={() => canVote && handleVote(cid)}
+                                title={disabledSelf ? 'Eigene Karte – nicht wählbar' : meta.title}
+                            >
+                                <div className="card-media">
+                                    {meta.image && <img src={`/${meta.image}`} alt={meta.title} />}
+                                    {isMyVote && <div className="card-check">🗳</div>}
+                                    {disabledSelf && <div className="card-badge self-badge">Eigene</div>}
+                                    {phase === 'reveal' && isStoryCard && <div className="card-badge" style={{background:'rgba(255,215,0,0.75)'}}>Erzähler</div>}
+                                </div>
                             </div>
                             {phase === 'reveal' && (
                                 <div className="card-meta-bar">
