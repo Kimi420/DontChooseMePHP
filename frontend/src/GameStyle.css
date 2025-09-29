@@ -188,7 +188,7 @@
   border-top: 1px solid rgba(0,0,0,0.06);
   font-size: .8rem;
 }
-.card-meta-bar .owner-line.story-owner { color: #b45309; font-weight: 600; }
+.card-meta-bar .owner-line.story-owner { color: white; font-weight: 600; }
 
 /* Aktionen unter Karte (z. B. Reroll) */
 .card-actions {
