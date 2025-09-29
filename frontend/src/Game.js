@@ -201,13 +201,16 @@ function Game({ gameId, playerName, onLeaveGame }) {
                 const isSel = selectedCard === cid;
                 const canRerollThisCard = showReroll; // pro Karte gleich; Limit pro Runde enforced
                 return (
-                    <div key={cid}
-                         className={`card-tile ${isSel ? 'selected' : ''} ${!selectable ? 'locked' : ''}`}
-                         onClick={() => selectable && handleSelectHandCard(cid)}
-                         title={meta.title}>
-                        {meta.image && <img src={`/${meta.image}`} alt={meta.title} />}
-                        {isSel && selectable && <div className="card-check">✔</div>}
-                        {hasSubmitted && !isStoryteller && isSel && <div className="card-check">✔</div>}
+                    <div key={cid} className="card-item">
+                        <div
+                             className={`card-tile ${isSel ? 'selected' : ''} ${!selectable ? 'locked' : ''}`}
+                             onClick={() => selectable && handleSelectHandCard(cid)}
+                             title={meta.title}
+                        >
+                            {meta.image && <img src={`/${meta.image}`} alt={meta.title} />}
+                            {isSel && selectable && <div className="card-check">✔</div>}
+                            {hasSubmitted && !isStoryteller && isSel && <div className="card-check">✔</div>}
+                        </div>
                         {canRerollThisCard && (
                           <div className="card-actions">
                             <button

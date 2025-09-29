@@ -49,14 +49,14 @@
   display: none;
 }
 .reveal-info-summary::before {
-  content: '▸';
+  content: '\25b8';
   display: inline-block;
   margin-right: 6px;
   transform: translateY(-1px);
   opacity: .8;
 }
 .reveal-info[open] .reveal-info-summary::before {
-  content: '▾';
+  content: '\25be';
 }
 .reveal-info-body {
   padding: 8px 10px;
@@ -94,6 +94,12 @@
   gap: 10px;
 }
 
+/* Neuer Wrapper um Kachel + Aktionen darunter */
+.card-item {
+  display: flex;
+  flex-direction: column;
+}
+
 /* Kartenkachel */
 .card-tile {
   position: relative;
@@ -104,10 +110,13 @@
   box-shadow: 0 1px 2px rgba(0,0,0,0.04);
   transition: transform .08s ease, box-shadow .12s ease;
 }
+/* Bild füllt die Karte komplett (gleichmäßiger Zuschnitt) */
 .card-tile img {
   display: block;
   width: 100%;
   height: auto;
+  aspect-ratio: 3 / 2;
+  object-fit: cover;
 }
 .card-tile:hover {
   transform: translateY(-1px);
@@ -140,7 +149,7 @@
 }
 .card-badge.self-badge { background: rgba(239,68,68,0.85); }
 
-/* Meta-Bar in Reveal */
+/* Meta-Bar in Reveal – unter dem Bild, nicht als Overlay */
 .card-meta-bar {
   display: flex;
   flex-direction: column;
