@@ -217,3 +217,27 @@
   .mixed-grid { grid-template-columns: repeat(2, 1fr); }
   .btn.xs { padding: 6px 6px; font-size: .75rem; }
 }
+
+/* Hard Overrides für Game-Ansicht: neutralisieren AppLayout-Kartenregeln */
+.game-layout .card-tile {
+  aspect-ratio: auto !important; /* AppLayout setzt 3/4 – hier zurücksetzen */
+  background: transparent !important;
+  border: none !important;
+}
+.game-layout .card-media {
+  aspect-ratio: var(--card-ratio, 3 / 2) !important;
+  background: var(--card-bg, #000) !important;
+  border-radius: inherit !important;
+}
+.game-layout .card-media img {
+  position: absolute !important;
+  inset: 0 !important;
+  width: 100% !important;
+  height: 100% !important;
+  object-fit: cover !important;
+  transform: scale(var(--card-zoom, 1.12)) !important;
+}
+/* Meta-Bar soll nicht overlayen in Game-Ansicht */
+.game-layout .card-meta-bar {
+  position: static !important;
+}
