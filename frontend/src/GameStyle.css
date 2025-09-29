@@ -1,7 +1,7 @@
 /* Globale Card-Variablen für Format, Zoom und Hintergrund */
 :root {
   --card-ratio: 3 / 2;   /* einheitliches Seitenverhältnis */
-  --card-zoom: 1.08;     /* etwas stärkerer Zoom gegen weiße Bildränder */
+  --card-zoom: 1.12;     /* stärkerer Standardzoom gegen Bildränder */
   --card-bg: #000;       /* Hintergrund im Medien-Container */
 }
 
@@ -110,11 +110,12 @@
 /* Kartenkachel */
 .card-tile {
   position: relative;
-  background: transparent; /* vorher #fff, verhindert sichtbare weiße Ränder */
-  border: 1px solid rgba(0,0,0,0.08);
+  background: transparent;
+  /* zarten Rand entfernen, um helle Linien zu vermeiden */
+  border: none;
   border-radius: 8px;
   overflow: hidden;
-  box-shadow: 0 1px 2px rgba(0,0,0,0.04);
+  box-shadow: 0 1px 2px rgba(0,0,0,0.06);
   transition: transform .08s ease, box-shadow .12s ease;
 }
 /* Bild füllt die Karte komplett (gleichmäßiger Zuschnitt) */
@@ -138,14 +139,17 @@
   aspect-ratio: var(--card-ratio, 3 / 2);
   overflow: hidden;
   background: var(--card-bg, #000);
-  border-radius: inherit; /* an Kachel-Radius anpassen */
+  border-radius: inherit;
+  line-height: 0; /* verhindert Text-Zwischenraumartefakte */
 }
 .card-media img {
+  position: absolute;
+  inset: 0; /* top:0; right:0; bottom:0; left:0 */
   width: 100%;
   height: 100%;
   object-fit: cover;
   display: block;
-  transform: scale(var(--card-zoom, 1.06)); /* leichtes Zoom um Bildränder wegzucroppen */
+  transform: scale(var(--card-zoom, 1.12));
   transform-origin: center;
   aspect-ratio: auto; /* neutralisiert evtl. geerbtes Verhältnis */
 }
