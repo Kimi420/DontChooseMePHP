@@ -237,10 +237,22 @@
   object-fit: cover !important;
   transform: scale(var(--card-zoom, 1.12)) !important;
 }
-/* Meta-Bar soll nicht overlayen in Game-Ansicht */
-.game-layout .card-meta-bar {
+/* Meta-Bar soll standardmäßig in Game-Ansicht nicht overlayen, außer in Reveal */
+.game-layout:not(.phase-reveal) .card-meta-bar {
   position: static !important;
 }
+/* In Reveal-Phase: Meta-Bar als Overlay am unteren Kartenrand anzeigen */
+.game-layout.phase-reveal .card-meta-bar {
+  position: absolute !important;
+  left: 0; right: 0; bottom: 0;
+  background: linear-gradient(to top, rgba(0,0,0,0.78), rgba(0,0,0,0.18)) !important;
+  color: #fff !important;
+  border-top: none !important;
+  padding: 6px 8px 8px !important;
+  font-size: .75rem !important;
+}
+.game-layout.phase-reveal .card-meta-bar .owner-line { font-weight: 700; }
+.game-layout.phase-reveal .card-meta-bar .votes-line { opacity: .95; }
 
 /* Karten im Game-Layout: hochkant 3:4 (Breite bleibt, Höhe wächst) */
 .game-layout {

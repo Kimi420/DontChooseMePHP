@@ -284,13 +284,13 @@ function Game({ gameId, playerName, onLeaveGame }) {
                                     {disabledSelf && <div className="card-badge self-badge">Eigene</div>}
                                     {phase === 'reveal' && isStoryCard && <div className="card-badge" style={{background:'rgba(255,215,0,0.75)'}}>Erzähler</div>}
                                 </div>
+                                {phase === 'reveal' && (
+                                    <div className="card-meta-bar">
+                                        <div className={`owner-line ${isStoryCard ? 'story-owner':''}`}>👤 {ownerName || '–'}{isStoryCard ? ' (Erzähler)' : ''}</div>
+                                        <div className="votes-line">🗳 {voterLine}</div>
+                                    </div>
+                                )}
                             </div>
-                            {phase === 'reveal' && (
-                                <div className="card-meta-bar">
-                                    <div className={`owner-line ${isStoryCard ? 'story-owner':''}`}>👤 {ownerName || '–'}{isStoryCard ? ' (Erzähler)' : ''}</div>
-                                    <div className="votes-line">🗳 {voterLine}</div>
-                                </div>
-                            )}
                         </div>
                     );
                 })}
