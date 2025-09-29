@@ -207,9 +207,11 @@ function Game({ gameId, playerName, onLeaveGame }) {
                              onClick={() => selectable && handleSelectHandCard(cid)}
                              title={meta.title}
                         >
-                            {meta.image && <img src={`/${meta.image}`} alt={meta.title} />}
-                            {isSel && selectable && <div className="card-check">✔</div>}
-                            {hasSubmitted && !isStoryteller && isSel && <div className="card-check">✔</div>}
+                            <div className="card-media">
+                                {meta.image && <img src={`/${meta.image}`} alt={meta.title} />}
+                                {isSel && selectable && <div className="card-check">✔</div>}
+                                {hasSubmitted && !isStoryteller && isSel && <div className="card-check">✔</div>}
+                            </div>
                         </div>
                         {canRerollThisCard && (
                           <div className="card-actions">
@@ -274,10 +276,12 @@ function Game({ gameId, playerName, onLeaveGame }) {
                              className={`card-tile ${isMyVote ? 'selected' : ''} ${disabledSelf ? 'locked self-lock' : ''}`}
                              onClick={() => canVote && handleVote(cid)}
                              title={disabledSelf ? 'Eigene Karte – nicht wählbar' : meta.title}>
-                            {meta.image && <img src={`/${meta.image}`} alt={meta.title} />}
-                            {isMyVote && <div className="card-check">🗳</div>}
-                            {disabledSelf && <div className="card-badge self-badge">Eigene</div>}
-                            {phase === 'reveal' && isStoryCard && <div className="card-badge" style={{background:'rgba(255,215,0,0.75)'}}>Erzähler</div>}
+                            <div className="card-media">
+                                {meta.image && <img src={`/${meta.image}`} alt={meta.title} />}
+                                {isMyVote && <div className="card-check">🗳</div>}
+                                {disabledSelf && <div className="card-badge self-badge">Eigene</div>}
+                                {phase === 'reveal' && isStoryCard && <div className="card-badge" style={{background:'rgba(255,215,0,0.75)'}}>Erzähler</div>}
+                            </div>
                             {phase === 'reveal' && (
                                 <div className="card-meta-bar">
                                     <div className={`owner-line ${isStoryCard ? 'story-owner':''}`}>👤 {ownerName || '–'}{isStoryCard ? ' (Erzähler)' : ''}</div>

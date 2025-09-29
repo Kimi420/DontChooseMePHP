@@ -125,6 +125,21 @@
 .card-tile.locked { opacity: .75; pointer-events: auto; }
 .card-tile.selected { outline: 2px solid #3b82f6; outline-offset: -2px; }
 
+/* Media-Container: fixes Seitenverhältnis + sauberes Crop ohne weiße Ränder */
+.card-media {
+  position: relative;
+  width: 100%;
+  aspect-ratio: var(--card-ratio, 3 / 2);
+  overflow: hidden;
+  background: #eee;
+}
+.card-media img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  display: block;
+}
+
 /* Auswahl-/Statusmarken */
 .card-check {
   position: absolute;
