@@ -178,6 +178,28 @@
 }
 .card-badge.self-badge { background: rgba(239,68,68,0.85); }
 
+/* Badges (oben links) im Game-Layout großzügiger gestalten */
+.game-layout .card-badge {
+  display: inline-flex !important;
+  align-items: center !important;
+  padding: 4px 10px !important; /* mehr Innenabstand, damit Hintergrund nicht zu klein wirkt */
+  border-radius: 9999px !important; /* echte Pillenform */
+  font-size: .72rem !important;
+  line-height: 1 !important; /* verhindert zu viel/zu wenig Höhe um den Text */
+  white-space: nowrap !important;
+  max-width: calc(100% - 12px) !important; /* verhindert Überlauf bei sehr langen Texten */
+  box-shadow: 0 1px 3px rgba(0,0,0,0.35) !important;
+}
+.game-layout .card-badge.self-badge {
+  background: rgba(239,68,68,0.9) !important; /* etwas satter für bessere Lesbarkeit */
+  font-weight: 700 !important;
+}
+/* Erzähler-Badge nutzt Inline-Background; Form/Padding hier trotzdem übernehmen */
+.game-layout .card-badge[style] {
+  padding: 4px 10px !important;
+  border-radius: 9999px !important;
+}
+
 /* Meta-Bar in Reveal – unter dem Bild, nicht als Overlay */
 .card-meta-bar {
   display: flex;
