@@ -1,3 +1,10 @@
+/* Globale Card-Variablen für Format, Zoom und Hintergrund */
+:root {
+  --card-ratio: 3 / 2;   /* einheitliches Seitenverhältnis */
+  --card-zoom: 1.08;     /* etwas stärkerer Zoom gegen weiße Bildränder */
+  --card-bg: #000;       /* Hintergrund im Medien-Container */
+}
+
 /* Countdown-Panel in der Reveal-Phase */
 .auto-next {
   background: rgba(59,130,246,0.12);
@@ -103,7 +110,7 @@
 /* Kartenkachel */
 .card-tile {
   position: relative;
-  background: #fff;
+  background: transparent; /* vorher #fff, verhindert sichtbare weiße Ränder */
   border: 1px solid rgba(0,0,0,0.08);
   border-radius: 8px;
   overflow: hidden;
@@ -111,11 +118,10 @@
   transition: transform .08s ease, box-shadow .12s ease;
 }
 /* Bild füllt die Karte komplett (gleichmäßiger Zuschnitt) */
-.card-tile img {
+.card-tile > img {
   display: block;
   width: 100%;
   height: auto;
-  aspect-ratio: 3 / 2;
   object-fit: cover;
 }
 .card-tile:hover {
@@ -131,13 +137,17 @@
   width: 100%;
   aspect-ratio: var(--card-ratio, 3 / 2);
   overflow: hidden;
-  background: #eee;
+  background: var(--card-bg, #000);
+  border-radius: inherit; /* an Kachel-Radius anpassen */
 }
 .card-media img {
   width: 100%;
   height: 100%;
   object-fit: cover;
   display: block;
+  transform: scale(var(--card-zoom, 1.06)); /* leichtes Zoom um Bildränder wegzucroppen */
+  transform-origin: center;
+  aspect-ratio: auto; /* neutralisiert evtl. geerbtes Verhältnis */
 }
 
 /* Auswahl-/Statusmarken */
