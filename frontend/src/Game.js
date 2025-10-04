@@ -148,10 +148,13 @@ function Game({ gameId, playerName, onLeaveGame }) {
     const isHost = me?.id === 1; // Host hat seat 1
     const myHand = me?.cards || [];
     const submissions = gameState.selectedCards || [];
-    const hasSubmitted = submissions.some(s => s.playerId === me?.id);
+    // Abgabestatus robust: bevorzugt Flag vom Server, Fallback auf Liste
+    const hasSubmitted = !!me?.hasSelectedCard || submissions.some(s => s.playerId === me?.id);
     const votes = gameState.votes || [];
     const hasVoted = votes.some(v => v.playerId === me?.id);
     const roundNumber = gameState.roundNumber;
+    // Zähler eingereichter Karten auf Basis der Player-Flags (keine sensiblen Daten nötig)
+    const submittedCount = (gameState.players || []).filter(p => !p.isStoryteller && p.hasSelectedCard).length;
 
     const getCardMeta = (id) => (gameState.cardData || []).find(c => parseInt(c.id) === parseInt(id));
 
@@ -408,7 +411,7 @@ function Game({ gameId, playerName, onLeaveGame }) {
         }
         if (phase === 'selectCards') {
             if (isStoryteller) {
-                return <div className="stack">{gameState.hint && <div className="hint-banner"><span className="label">Hinweis</span>{gameState.hint}</div>}<div style={{padding:'8px 4px'}}>Warten bis alle Spieler eine Karte abgelegt haben… ({submissions.length}/{gameState.players.length -1})</div></div>;
+                return <div className="stack">{gameState.hint && <div className="hint-banner"><span className="label">Hinweis</span>{gameState.hint}</div>}<div style={{padding:'8px 4px'}}>Warten bis alle Spieler eine Karte abgelegt haben… ({submittedCount}/{gameState.players.length -1})</div></div>;
             }
             return (
                 <div className="stack">

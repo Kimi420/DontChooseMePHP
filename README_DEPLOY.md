@@ -1,43 +1,71 @@
-# Deployment-Anleitung für Don't Pick Me
+# Deployment-Anleitung
+
+Diese Anleitung beschreibt den produktiven Rollout des Projekts mit PHP-Backend und React-Frontend.
 
 ## Voraussetzungen
-- Webhosting mit PHP-Unterstützung (z.B. Netcup)
-- Möglichkeit, eigene Dateien hochzuladen (FTP, Web-FTP, SSH)
-- Optional: Node.js für das Bauen des React-Frontends
+- Webhosting/Server mit PHP 8.1+ und PDO (MySQL/MariaDB)
+- Datenbank (MySQL/MariaDB) mit User, der CREATE/ALTER/INSERT/UPDATE/DELETE darf
+- Optionale lokale Build-Umgebung: Node.js 18+ und npm (für das React-Frontend)
 
-## Schritt 1: Backend hochladen
-1. Lade den gesamten `backend`-Ordner auf deinen Server (z.B. in `public_html/backend`).
-2. Stelle sicher, dass die Datei `GameController.php` und die anderen PHP-Dateien vorhanden sind.
-3. Die Datei `.htaccess` im backend-Ordner sorgt für CORS und API-Zugriff.
+## 1) Backend deployen
+1. Ordner `backend/` auf den Webspace/Server hochladen (z. B. `public_html/backend`).
+2. Datenbankzugang in `config/database.php` eintragen (Host, DB-Name, User, Passwort).
+3. Prüfen, dass `backend/Game_api.php` erreichbar ist (z. B. `https://deine-domain.tld/backend/Game_api.php`).
+   - Die Tabellen werden vom Backend bei Bedarf automatisch erzeugt.
 
-## Schritt 2: Frontend hochladen
-1. Lade den gesamten `frontend`-Ordner auf deinen Server (z.B. in `public_html/frontend`).
-2. Die Datei `.htaccess` im frontend-Ordner sorgt für korrektes Routing der React-App.
-3. Die Sounds müssen im Ordner `frontend/sounds` liegen.
-
-## Schritt 3: API-URL konfigurieren
-1. Öffne die Datei `frontend/config.json` und trage die korrekte URL zu deinem Backend ein, z.B.:
+## 2) Frontend konfigurieren & bauen
+1. In `frontend/src/config.json` die produktive API-URL setzen, z. B.:
    ```json
-   { "API_URL": "https://deinedomain.de/backend" }
+   { "API_URL": "https://deine-domain.tld/backend" }
    ```
+2. Produktionsbuild erzeugen:
+   ```cmd
+   cd frontend
+   npm install
+   npm run build
+   ```
+3. Den Inhalt von `frontend/build/` auf den Webspace/Server laden (z. B. `public_html/`).
+   - Alternativ kannst du den Build in ein Unterverzeichnis legen (z. B. `public_html/app/`).
 
-## Schritt 4: React-Frontend bauen (optional)
-Falls du das Frontend lokal bauen möchtest:
-1. Navigiere in den `frontend`-Ordner.
-2. Führe `npm install` und dann `npm run build` aus.
-3. Lade den Inhalt des `build`-Ordners auf den Server.
+## 3) Verzeichnisstruktur (Beispiel)
+```
+public_html/
+├─ backend/                 # PHP-Backend (Game_api.php, NormalizedGameService.php, ...)
+│  └─ ...
+├─ sounds/                  # Falls separat ausgeliefert
+│  ├─ lobby.mp3
+│  ├─ storyteller.mp3
+│  ├─ voting.mp3
+│  └─ phase-change.mp3
+├─ index.html               # aus frontend/build
+├─ asset-manifest.json      # aus frontend/build
+└─ static/                  # aus frontend/build/static
+   ├─ js/
+   └─ css/
+```
 
-## Schritt 5: Domain und Dokumentstamm
-- Setze den Dokumentstamm deiner Domain auf `public_html` oder den Ordner, in dem `frontend` und `backend` liegen.
-- Prüfe, ob du über `https://deinedomain.de/frontend` und `https://deinedomain.de/backend/GameController.php` zugreifen kannst.
+Hinweis zu Sounds/Assets:
+- Im Build liegen die Audios als `sounds/*.mp3`. Stelle sicher, dass sie unter derselben Domain wie das Frontend erreichbar sind (z. B. `https://deine-domain.tld/sounds/...`).
 
-## Schritt 6: Testen
-- Öffne die Seite im Browser und teste die wichtigsten Funktionen (Lobby, Spielstart, Karten, Sounds).
-- Prüfe die Kommunikation zwischen Frontend und Backend.
+## 4) Domain & Routing
+- Idealerweise liegen Frontend und Backend auf derselben Domain, damit keine CORS-Probleme entstehen.
+- API-Endpunkt: `https://deine-domain.tld/backend/Game_api.php`
+- Frontend: `https://deine-domain.tld/` (oder ein Unterordner)
+
+## 5) Smoke-Test
+- Seite im Browser öffnen und testen:
+  - Lobby erstellen/beitreten
+  - Spiel starten
+  - Kartenanzeige (3:4 hochkant) und Reveal-Overlay prüfen
+  - Reroll-Button (einmal pro Runde) prüfen
+  - Audio (Musik/Effekte) prüfen
+
+## 6) Fehlersuche
+- API nicht erreichbar: Pfade prüfen (`backend/Game_api.php`), Server-Logs ansehen.
+- DB-Probleme: Zugangsdaten in `config/database.php` validieren, Rechte prüfen.
+- CORS/Old Cache: Frontend/Backend auf derselben Domain betreiben; Browser-Cache leeren / Hard-Reload.
+- Sounds stumm: Autoplay erfordert Benutzerinteraktion; Pfade zu `/sounds/*.mp3` prüfen.
 
 ---
 
-**Hinweis:**
-- Bei Problemen mit CORS, Routing oder PHP-Rechten prüfe die .htaccess und Server-Einstellungen.
-- Für weitere Fragen oder Anpassungen kannst du dich jederzeit melden!
-
+Tipp: Für Staging bitte separate DB und Subdomain verwenden, um Daten zu trennen.

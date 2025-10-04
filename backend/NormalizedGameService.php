@@ -340,6 +340,13 @@ class NormalizedGameService {
         $submissions = $state['round_id'] ? $this->roundSubmissions($state['round_id']) : [];
         $votes = $state['round_id'] ? $this->roundVotes($state['round_id']) : [];
         $mixed = $this->mixedCardsInternal($state);
+
+        // Bestimme anfragenden Spieler (für personenbezogene Einblicke)
+        $requester = null;
+        if ($playerName !== null) {
+            $requester = $this->playerByName($gameId, $playerName);
+        }
+
         $playerDtos = [];
         foreach ($players as $p) {
             $cards = $this->playerHand($p['db_id']);
@@ -349,10 +356,9 @@ class NormalizedGameService {
                     $hasSelected = $this->submissionExists($state['round_id'], $p['db_id']);
                 }
             }
-            // Karten nur für den eigenen Spieler sichtbar – jetzt case-insensitive Vergleich
+            // Karten nur für den eigenen Spieler sichtbar – case-insensitive Abgleich
             $showCards = false;
             if ($playerName !== null) {
-                // strcasecmp gibt 0 bei Gleichheit ohne Beachtung der Groß-/Kleinschreibung
                 if (strcasecmp($playerName, (string)$p['name']) === 0) {
                     $showCards = true;
                 }
@@ -387,18 +393,48 @@ class NormalizedGameService {
             $max = 0; foreach ($players as $p) { $max = max($max,(int)$p['score']); }
             foreach ($players as $p) { if ((int)$p['score'] === $max) { $winners[] = [ 'name'=>$p['name'], 'score'=>(int)$p['score'] ]; } }
         }
+
+        // Datenschutz: Felder phasengerecht einschränken
+        $phase = $state['phase'];
+
+        // storytellerCard nur in reveal/finished offenlegen
+        $storytellerCardOut = null;
+        if ($phase === 'reveal' || $phase === 'finished') {
+            $storytellerCardOut = $state['storyteller_card_id'];
+        }
+
+        // selectedCards: in reveal/finished komplett; in voting nur die eigene Einsendung; sonst leer
+        $selectedOut = [];
+        if ($phase === 'reveal' || $phase === 'finished') {
+            $selectedOut = $submissions;
+        } elseif ($phase === 'voting' && $requester && $state['round_id']) {
+            // Finde eigene Einsendung (falls vorhanden)
+            $reqSeat = (int)$requester['seat'];
+            foreach ($submissions as $s) {
+                if ((int)$s['playerId'] === $reqSeat) { $selectedOut[] = $s; break; }
+            }
+        }
+
+        // votes: in reveal/finished komplett; in voting anonym (nur playerId); sonst leer
+        $votesOut = [];
+        if ($phase === 'reveal' || $phase === 'finished') {
+            $votesOut = $votes;
+        } elseif ($phase === 'voting') {
+            foreach ($votes as $v) { $votesOut[] = ['playerId' => $v['playerId']]; }
+        }
+
         return [
             'success'=>true,
             'gameId'=>$gameId,
             'players'=>$playerDtos,
-            'phase'=>$state['phase'],
+            'phase'=>$phase,
             'storytellerIndex'=> max(0,$state['storytellerSeat'] - 1),
             'hint'=>$state['hint'],
-            'storytellerCard'=>$state['storyteller_card_id'],
+            'storytellerCard'=>$storytellerCardOut,
             'mixedCards'=>$mixed,
-            'selectedCards'=>$submissions,
-            'votes'=>$votes,
-            'state'=>$state['phase']==='waiting'?'waiting':($isFinished?'finished':'playing'),
+            'selectedCards'=>$selectedOut,
+            'votes'=>$votesOut,
+            'state'=>$phase==='waiting'?'waiting':($isFinished?'finished':'playing'),
             'cardData'=>$cardData,
             'roundScores'=>$roundScores,
             'deckId'=>$deckId,
