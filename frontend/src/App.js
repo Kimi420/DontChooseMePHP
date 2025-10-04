@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { createGame, joinGame, getGameState, startGame } from './api';
+import { createGame, joinGame, getGameState, startGame, rejoinGame, leaveGame, leaveGameBeacon } from './api';
 import Lobby from './Lobby';
 import Game from './Game';
 import VolumeControl from './components/VolumeControl';
@@ -38,18 +38,29 @@ function App() {
     const [error, setError] = useState('');
     const [volume, setVolume] = useState(0.3);
     const [gamePhase, setGamePhase] = useState('waiting');
+    const [deckId, setDeckId] = useState(null);
+    const [deckName, setDeckName] = useState(null);
+    // Neu: Autoplay-Status
+    const [autoplayBlocked, setAutoplayBlocked] = useState(false);
+    const [resuming, setResuming] = useState(false);
 
     // Initialisiere AudioManager beim App-Start
     useEffect(() => {
         audioManager.setVolume(volume);
+        audioManager.requestBackgroundMusic('sounds/lobby.mp3', true, 2000);
+        return () => { audioManager.stopTrack(500); };
+    }, []);
 
-        // Auto-start Lobby-Musik mit reduzierter Lautstärke
-        audioManager.playTrack('sounds/lobby.mp3', true, 2000);
-
-        // Cleanup bei App-Beendigung
-        return () => {
-            audioManager.stopTrack(500);
+    // Listener für Statusänderungen (Autoplay)
+    useEffect(() => {
+        const listener = ({ autoplayBlocked: blocked }) => {
+            setAutoplayBlocked(!!blocked);
+            if (!blocked) setResuming(false);
         };
+        audioManager.addStatusListener(listener);
+        // Initial übernehmen, falls schon gesetzt
+        setAutoplayBlocked(!!audioManager.autoplayBlocked);
+        return () => audioManager.removeStatusListener(listener);
     }, []);
 
     // Volume änderungen an AudioManager weiterleiten
@@ -65,6 +76,8 @@ function App() {
                     if (state && state.success) {
                         setPlayers(state.players || []);
                         setGamePhase(state.phase || 'waiting');
+                        if (state.deckId !== undefined) setDeckId(state.deckId);
+                        if (state.deckName !== undefined) setDeckName(state.deckName);
                     }
                 }).catch(err => console.error('Fehler beim Abrufen des Spielstatus:', err));
             };
@@ -74,18 +87,72 @@ function App() {
         return () => interval && clearInterval(interval);
     }, [gameId, playerName]);
 
+    // Auto-Rejoin beim Laden
+    useEffect(() => {
+        try {
+            const raw = localStorage.getItem('dcm_session');
+            if (raw) {
+                const saved = JSON.parse(raw);
+                if (saved.gameId && saved.playerName) {
+                    rejoinGame(saved.gameId, saved.playerName).then(r => {
+                        if (r && r.success) {
+                            setGameId(saved.gameId);
+                            setPlayerName(saved.playerName);
+                            setInSession(true);
+                            if (r.phase) setGamePhase(r.phase);
+                        } else {
+                            // Ungültig -> löschen
+                            localStorage.removeItem('dcm_session');
+                        }
+                    }).catch(()=>{});
+                }
+            }
+        } catch(e) { /* ignore */ }
+    }, []);
+
+    // Beacon beim Tab-Schließen/Reload
+    useEffect(() => {
+        const handleBeforeUnload = () => {
+            if (inSession && gameId && playerName) {
+                leaveGameBeacon(gameId, playerName);
+            }
+        };
+        window.addEventListener('beforeunload', handleBeforeUnload);
+        return () => window.removeEventListener('beforeunload', handleBeforeUnload);
+    }, [inSession, gameId, playerName]);
+
+    const persistSession = (gid, name) => {
+        try { localStorage.setItem('dcm_session', JSON.stringify({ gameId: gid, playerName: name })); } catch(_){}}
+    ;
+    const clearSession = () => { try { localStorage.removeItem('dcm_session'); } catch(_){} };
+
     const handleJoin = async (roomId, name) => {
         if (!roomId || !name) {
             setError('Bitte Raum-ID und Namen eingeben!');
             return;
         }
         try {
+            // Erst versuchen zu rejoinen (falls bereits registriert)
+            const attempt = await rejoinGame(roomId, name);
+            if (attempt && attempt.success) {
+                setGameId(roomId);
+                setPlayerName(name);
+                setInSession(true);
+                if (attempt.phase) setGamePhase(attempt.phase);
+                setError('');
+                persistSession(roomId, name);
+                return;
+            }
+            // Regulärer Join
             const res = await joinGame(roomId, name);
             if (res.success) {
                 setGameId(roomId);
                 setPlayerName(name);
                 setInSession(true);
                 setError('');
+                persistSession(roomId, name);
+                // Sofort Zustand abrufen um Phase (laufendes Spiel) schneller zu sehen
+                getGameState(roomId, name).then(s => { if (s && s.success && s.phase) setGamePhase(s.phase); });
             } else {
                 setError(res.message || 'Beitritt fehlgeschlagen');
             }
@@ -107,6 +174,7 @@ function App() {
                 setPlayerName(name);
                 setInSession(true); // Bleibt in Lobby bis Start
                 setError('');
+                persistSession(res.gameId, name);
             } else {
                 setError(res.message || 'Start fehlgeschlagen');
             }
@@ -124,12 +192,29 @@ function App() {
         }
     };
 
-    const handleLeaveGame = () => {
+    const handleCreatedGame = (newGameId, name) => {
+        setGameId(newGameId);
+        setPlayerName(name);
+        setInSession(true);
+        setDeckId(null); setDeckName(null);
+        setError('');
+        persistSession(newGameId, name);
+    };
+
+    const handleLeaveGame = async () => {
+        const gid = gameId; const name = playerName;
+        // Sofort lokal aufräumen, um UI schnell umzuschalten
         setInSession(false);
         setGameId('');
         setPlayers([]);
         setGamePhase('waiting');
-        audioManager.playTrack('sounds/lobby.mp3', true, 1000);
+        setDeckId(null); setDeckName(null);
+        audioManager.requestBackgroundMusic('sounds/lobby.mp3', true, 1000);
+        clearSession();
+        // Backend informieren (best-effort)
+        if (gid && name) {
+            try { await leaveGame(gid, name); } catch(_) {}
+        }
     };
 
     const handleVolumeChange = (newVolume) => {
@@ -143,13 +228,50 @@ function App() {
                     <header className="app-header">
                         <h1>🎨 Don't Choose Me</h1>
                         <p>Das kreative Ratespiel für Freunde & Familie</p>
-                        {!inSession && (
+                        {!inSession && !autoplayBlocked && (
                             <div className="badge-music">🎵 Lobby Musik aktiv</div>
                         )}
-                        <div style={{position:'absolute',left:12,top:12}}>
-                            <VolumeControl volume={volume} onChange={handleVolumeChange} />
+                        <div className="header-left">
+                            {/* VolumeControl aus dem Header entfernt – jetzt als globales Panel unten rechts */}
                         </div>
+                        {autoplayBlocked && (
+                          <div className="autoplay-cta" role="alert" aria-live="polite">
+                            <button
+                              className="btn autoplay-btn"
+                              onClick={() => { if (!resuming) { setResuming(true); audioManager.attemptResume(); } }}
+                              disabled={resuming}
+                              aria-label="Musik aktivieren (Autoplay war blockiert)"
+                            >{resuming ? 'Aktiviere…' : 'Musik aktivieren'}</button>
+                          </div>
+                        )}
                     </header>
+
+                    {/* Globales Info-Tab unten links, immer sichtbar */}
+                    <div className="global-info" aria-live="polite">
+                      <details className="info-tab">
+                        <summary className="info-tab-summary" aria-label="Punkteverteilung anzeigen/ausblenden">ℹ️ Punkte</summary>
+                        <div className="info-tab-panel" role="region" aria-label="Punkteverteilung – so funktioniert's">
+                          <ul>
+                            <li><strong>Erzähler</strong>: +3 Punkte, wenn einige (aber nicht alle) die richtige Karte wählen. 0 Punkte, wenn alle oder keiner richtig liegt.</li>
+                            <li><strong>Richtige Wahl</strong>: +3 Punkte pro Spieler, der die Erzähler-Karte korrekt wählt.</li>
+                            <li><strong>Täuschpunkte</strong>: +1 Punkt pro Stimme, die auf deine (falsche) Karte fällt.</li>
+                          </ul>
+                          <div className="info-tab-example">
+                            Beispiel: Spieler A ist Erzähler. Wenn B und C richtig raten, D aber nicht → A +3, B +3, C +3. Bekommt D eine oder mehrere Stimmen auf seine Karte, erhält er zusätzlich +1 pro Stimme.
+                          </div>
+                        </div>
+                      </details>
+                    </div>
+
+                    {/* Globales Volume-Panel unten rechts, ausklappbar */}
+                    <div className="global-volume" aria-live="polite">
+                      <details className="info-tab">
+                        <summary className="info-tab-summary" aria-label="Lautstärke einstellen">🔊 Lautstärke</summary>
+                        <div className="info-tab-panel" role="region" aria-label="Lautstärkeregelung">
+                          <VolumeControl volume={volume} onChange={handleVolumeChange} />
+                        </div>
+                      </details>
+                    </div>
 
                     <main className={`app-panel phase-${gamePhase}`}>
                         {inSession && gamePhase !== 'waiting' ? (
@@ -169,6 +291,9 @@ function App() {
                                 onJoin={handleJoin}
                                 onStart={gameId ? handleStartGame : handleCreateGame}
                                 onLeave={handleLeaveGame}
+                                onCreated={handleCreatedGame}
+                                deckId={deckId}
+                                deckName={deckName}
                             />
                         )}
                     </main>

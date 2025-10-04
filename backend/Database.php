@@ -33,6 +33,9 @@ class Database {
                 
             } catch (PDOException $e) {
                 error_log("Datenbankverbindung fehlgeschlagen: " . $e->getMessage());
+                if (defined('APP_DEBUG') && APP_DEBUG) {
+                    throw new Exception("Datenbankverbindung fehlgeschlagen: " . $e->getMessage());
+                }
                 throw new Exception("Datenbankverbindung fehlgeschlagen");
             }
         }
@@ -147,14 +150,59 @@ class Database {
             INDEX idx_game (game_id),
             INDEX idx_game_consumed (game_id, consumed)
         )");
+
+        // Deck-Tabelle für Kartendecks
+        $pdo->exec("CREATE TABLE IF NOT EXISTS g_decks (
+            id INT AUTO_INCREMENT PRIMARY KEY,
+            name VARCHAR(100) NOT NULL,
+            description TEXT DEFAULT NULL
+        )");
+
+        // Karten-Tabelle für Deckkarten
+        $pdo->exec("CREATE TABLE IF NOT EXISTS g_cards (
+            id INT AUTO_INCREMENT PRIMARY KEY,
+            deck_id INT NOT NULL,
+            title VARCHAR(255) NOT NULL,
+            image VARCHAR(255) NOT NULL,
+            FOREIGN KEY (deck_id) REFERENCES g_decks(id) ON DELETE CASCADE,
+            INDEX idx_deck (deck_id)
+        )");
+
+        // Deck-Zuordnung zu Spiel ergänzen (nur einmal versuchen)
+        try {
+            $pdo->exec("ALTER TABLE g_games ADD COLUMN deck_id INT NULL AFTER id");
+        } catch (PDOException $e) {
+            // Duplicate column -> ignorieren
+        }
+        try {
+            $pdo->exec("ALTER TABLE g_games ADD CONSTRAINT fk_games_deck FOREIGN KEY (deck_id) REFERENCES g_decks(id) ON DELETE SET NULL");
+        } catch (PDOException $e) {
+            // Bereits vorhanden -> ignorieren
+        }
+
+        // Verifikation: existiert g_decks wirklich?
+        try {
+            $chk = $pdo->query("SHOW TABLES LIKE 'g_decks'");
+            if ($chk->rowCount() === 0) {
+                error_log('[DB] Tabelle g_decks wurde nicht erstellt (fehlende Rechte?)');
+                if (defined('APP_DEBUG') && APP_DEBUG) {
+                    throw new Exception('Tabelle g_decks fehlt – evtl. fehlen CREATE-Rechte');
+                }
+            }
+        } catch (Throwable $e) {
+            error_log('[DB] Verifikationsfehler g_decks: '.$e->getMessage());
+        }
+
+        // Automatischer Import entfernt! Import jetzt nur noch manuell per import_cards.php ausführen.
     }
 
     /**
      * Bereinigt alte Spiele (älter als 24 Stunden)
      */
     public static function cleanupOldGames(): void {
-        // Legacy-Funktion deaktiviert – alte Tabelle `games` existiert nicht mehr.
-        return;
+        $pdo = self::getConnection();
+        // Löscht alle Spiele, die älter als 24h sind (inkl. aller abhängigen Daten)
+        $pdo->exec("DELETE FROM g_games WHERE created_at < (NOW() - INTERVAL 1 DAY)");
     }
 
     /**

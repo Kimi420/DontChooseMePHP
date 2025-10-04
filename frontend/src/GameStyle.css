@@ -1,0 +1,282 @@
+/* Globale Card-Variablen für Format, Zoom und Hintergrund */
+:root {
+  --card-ratio: 3 / 2;   /* einheitliches Seitenverhältnis */
+  --card-zoom: 1.12;     /* stärkerer Standardzoom gegen Bildränder */
+  --card-bg: #000;       /* Hintergrund im Medien-Container */
+}
+
+/* Countdown-Panel in der Reveal-Phase */
+.auto-next {
+  background: rgba(59,130,246,0.12);
+  border: 1px solid rgba(59,130,246,0.35);
+  border-radius: 8px;
+  padding: 8px 10px;
+  margin: 6px 0 8px;
+}
+.auto-next-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 6px;
+  gap: 8px;
+}
+.auto-next-title {
+  font-weight: 600;
+  font-size: .9rem;
+}
+.auto-next-bar {
+  height: 8px;
+  background: rgba(59,130,246,0.25);
+  border-radius: 9999px;
+  overflow: hidden;
+}
+.auto-next-bar-fill {
+  height: 100%;
+  width: 0;
+  background: #3b82f6;
+  transition: width .3s ease;
+}
+/* Inline-Countdown unten in der Button-Leiste (nur wenn Top-Panel nicht sichtbar) */
+.auto-next-inline {
+  margin-left: 12px;
+  font-weight: 600;
+  color: #c05555;
+}
+
+/* Ausklappbares Infofenster zur Punkteverteilung */
+.reveal-info {
+  margin: 6px 0 10px;
+}
+.reveal-info-summary {
+  cursor: pointer;
+  user-select: none;
+  list-style: none;
+}
+.reveal-info-summary::-webkit-details-marker {
+  display: none;
+}
+.reveal-info-summary::before {
+  content: '\25b8';
+  display: inline-block;
+  margin-right: 6px;
+  transform: translateY(-1px);
+  opacity: .8;
+}
+.reveal-info[open] .reveal-info-summary::before {
+  content: '\25be';
+}
+.reveal-info-body {
+  padding: 8px 10px;
+  background: rgba(16,185,129);
+  border: 1px solid rgba(16,185,129,0.35);
+  border-radius: 8px;
+  margin-top: 8px;
+}
+.reveal-info-body ul {
+  margin: 4px 0 8px 18px;
+}
+.reveal-info-example {
+  font-size: .85rem;
+
+}
+
+/* Bewegungspräferenz respektieren */
+@media (prefers-reduced-motion: reduce) {
+  .auto-next-bar-fill {
+    transition: none;
+  }
+}
+
+/* Handkarten-Grid (responsiv) */
+.hand-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(120px, 1fr));
+  gap: 10px;
+}
+
+/* Gemischte Karten (Voting/Reveal) */
+.mixed-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(140px, 1fr));
+  gap: 10px;
+}
+
+/* Neuer Wrapper um Kachel + Aktionen darunter */
+.card-item {
+  display: flex;
+  flex-direction: column;
+}
+
+/* Kartenkachel */
+.card-tile {
+  position: relative;
+  background: transparent;
+  /* zarten Rand entfernen, um helle Linien zu vermeiden */
+  border: none;
+  border-radius: 8px;
+  overflow: hidden;
+  box-shadow: 0 1px 2px rgba(0,0,0,0.06);
+  transition: transform .08s ease, box-shadow .12s ease;
+}
+/* Bild füllt die Karte komplett (gleichmäßiger Zuschnitt) */
+.card-tile > img {
+  display: block;
+  width: 100%;
+  height: auto;
+  object-fit: cover;
+}
+.card-tile:hover {
+  transform: translateY(-1px);
+  box-shadow: 0 4px 10px rgba(0,0,0,0.08);
+}
+.card-tile.locked { opacity: .75; pointer-events: auto; }
+.card-tile.selected { outline: 2px solid #3b82f6; outline-offset: -2px; }
+
+/* Media-Container: fixes Seitenverhältnis + sauberes Crop ohne weiße Ränder */
+.card-media {
+  position: relative;
+  width: 100%;
+  aspect-ratio: var(--card-ratio, 3 / 2);
+  overflow: hidden;
+  background: var(--card-bg, #000);
+  border-radius: inherit;
+  line-height: 0; /* verhindert Text-Zwischenraumartefakte */
+}
+.card-media img {
+  position: absolute;
+  inset: 0; /* top:0; right:0; bottom:0; left:0 */
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  display: block;
+  transform: scale(var(--card-zoom, 1.12));
+  transform-origin: center;
+  aspect-ratio: auto; /* neutralisiert evtl. geerbtes Verhältnis */
+}
+
+/* Auswahl-/Statusmarken */
+.card-check {
+  position: absolute;
+  top: 6px;
+  right: 6px;
+  background: rgba(16,185,129,0.9);
+  color: #fff;
+  border-radius: 9999px;
+  width: 24px; height: 24px;
+  display: flex; align-items: center; justify-content: center;
+  font-weight: 700;
+  font-size: 14px;
+}
+.card-badge {
+  position: absolute;
+  top: 6px; left: 6px;
+  background: rgba(0,0,0,0.6);
+  color: #fff;
+  padding: 2px 6px;
+  border-radius: 6px;
+  font-size: .65rem;
+}
+.card-badge.self-badge { background: rgba(239,68,68,0.85); }
+
+/* Badges (oben links) im Game-Layout großzügiger gestalten */
+.game-layout .card-badge {
+  display: inline-flex !important;
+  align-items: center !important;
+  padding: 4px 10px !important; /* mehr Innenabstand, damit Hintergrund nicht zu klein wirkt */
+  border-radius: 9999px !important; /* echte Pillenform */
+  font-size: .72rem !important;
+  line-height: 1 !important; /* verhindert zu viel/zu wenig Höhe um den Text */
+  white-space: nowrap !important;
+  max-width: calc(100% - 12px) !important; /* verhindert Überlauf bei sehr langen Texten */
+  box-shadow: 0 1px 3px rgba(0,0,0,0.35) !important;
+}
+.game-layout .card-badge.self-badge {
+  background: rgba(239,68,68,0.9) !important; /* etwas satter für bessere Lesbarkeit */
+  font-weight: 700 !important;
+}
+/* Erzähler-Badge nutzt Inline-Background; Form/Padding hier trotzdem übernehmen */
+.game-layout .card-badge[style] {
+  padding: 4px 10px !important;
+  border-radius: 9999px !important;
+}
+
+/* Meta-Bar in Reveal – unter dem Bild, nicht als Overlay */
+.card-meta-bar {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  padding: 8px;
+  background: #fafafa;
+  border-top: 1px solid rgba(0,0,0,0.06);
+  font-size: .8rem;
+}
+.card-meta-bar .owner-line.story-owner { color: white; font-weight: 600; }
+
+/* Aktionen unter Karte (z. B. Reroll) */
+.card-actions {
+  display: flex;
+  justify-content: center;
+  padding: 6px 8px;
+  gap: 6px;
+}
+
+/* Kleine Buttons (für mobile) */
+.btn.xs {
+  font-size: .7rem;
+  line-height: 1.2;
+  padding: 6px 8px;
+  border-radius: 6px;
+}
+.btn.outline.xs {
+  background: transparent;
+  border: 1px solid rgba(0,0,0,0.2);
+}
+.reroll-btn { white-space: nowrap; }
+
+/* Mobile Verbesserungen */
+@media (max-width: 480px) {
+  .hand-grid { grid-template-columns: repeat(2, 1fr); }
+  .mixed-grid { grid-template-columns: repeat(2, 1fr); }
+  .btn.xs { padding: 6px 6px; font-size: .75rem; }
+}
+
+/* Hard Overrides für Game-Ansicht: neutralisieren AppLayout-Kartenregeln */
+.game-layout .card-tile {
+  aspect-ratio: auto !important; /* AppLayout setzt 3/4 – hier zurücksetzen */
+  background: transparent !important;
+  border: none !important;
+}
+.game-layout .card-media {
+  aspect-ratio: var(--card-ratio, 3 / 2) !important;
+  background: var(--card-bg, #000) !important;
+  border-radius: inherit !important;
+}
+.game-layout .card-media img {
+  position: absolute !important;
+  inset: 0 !important;
+  width: 100% !important;
+  height: 100% !important;
+  object-fit: cover !important;
+  transform: scale(var(--card-zoom, 1.12)) !important;
+}
+/* Meta-Bar soll standardmäßig in Game-Ansicht nicht overlayen, außer in Reveal */
+.game-layout:not(.phase-reveal) .card-meta-bar {
+  position: static !important;
+}
+/* In Reveal-Phase: Meta-Bar als Overlay am unteren Kartenrand anzeigen */
+.game-layout.phase-reveal .card-meta-bar {
+  position: absolute !important;
+  left: 0; right: 0; bottom: 0;
+  background: linear-gradient(to top, rgba(0,0,0,0.78), rgba(0,0,0,0.18)) !important;
+  color: #fff !important;
+  border-top: none !important;
+  padding: 6px 8px 8px !important;
+  font-size: .75rem !important;
+}
+.game-layout.phase-reveal .card-meta-bar .owner-line { font-weight: 700; }
+.game-layout.phase-reveal .card-meta-bar .votes-line { opacity: .95; }
+
+/* Karten im Game-Layout: hochkant 3:4 (Breite bleibt, Höhe wächst) */
+.game-layout {
+  --card-ratio: 3 / 4;
+}

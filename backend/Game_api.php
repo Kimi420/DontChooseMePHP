@@ -25,6 +25,18 @@ function readJson(): array {
 }
 
 if ($_SERVER['REQUEST_METHOD'] === 'GET') {
+    if (isset($_GET['decks'])) {
+        try {
+            $pdo = Database::getConnection();
+            $stmt = $pdo->query("SELECT id, name, description FROM g_decks ORDER BY id");
+            $decks = $stmt->fetchAll();
+            echo json_encode(['success' => true, 'decks' => $decks]);
+        } catch (Throwable $e) {
+            http_response_code(500);
+            echo json_encode(['success' => false, 'error' => 'Fehler beim Laden der Decks', 'debug' => $e->getMessage()]);
+        }
+        exit;
+    }
     if (!isset($_GET['gameId'])) {
         echo json_encode(['success' => false, 'message' => 'Game ID fehlt']);
         exit;
@@ -38,39 +50,79 @@ if ($_SERVER['REQUEST_METHOD'] === 'GET') {
 
 if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     $data = readJson();
-    if (!$data || !isset($data['gameId']) || !isset($data['action'])) {
+    // Erweiterung: Lobby-Erstellung mit Deck-Auswahl
+    if (isset($data['action']) && $data['action'] === 'createGame') {
+        $playerName = $data['playerName'] ?? null;
+        $deckId = isset($data['deckId']) ? (int)$data['deckId'] : null;
+        if (!$playerName) {
+            echo json_encode(['success' => false, 'message' => 'Spielername fehlt']);
+            exit;
+        }
+        $res = $service->createGame($playerName, $deckId);
+        echo json_encode($res);
+        exit;
+    }
+    if (!$data || !isset($data['action'])) {
         echo json_encode(['success' => false, 'message' => 'Ungültige Anfrage']);
         exit;
     }
-    $gameId = $data['gameId'];
     $action = $data['action'];
     switch ($action) {
+        case 'join':
+            if (!isset($data['gameId'],$data['playerName'])) { $res=['success'=>false,'message'=>'Parameter fehlen']; break; }
+            $res = $service->joinGame($data['gameId'], $data['playerName']);
+            break;
+        case 'rejoin':
+            if (!isset($data['gameId'],$data['playerName'])) { $res=['success'=>false,'message'=>'Parameter fehlen']; break; }
+            $res = $service->rejoinGame($data['gameId'], $data['playerName']);
+            break;
+        case 'leave':
+            if (!isset($data['gameId'],$data['playerName'])) { $res=['success'=>false,'message'=>'Parameter fehlen']; break; }
+            $res = $service->leaveGame($data['gameId'], $data['playerName']);
+            break;
+        case 'reroll':
+            if (!isset($data['gameId'],$data['playerName'],$data['cardId'])) { $res=['success'=>false,'message'=>'Fehlende Parameter']; break; }
+            $res = $service->rerollCard($data['gameId'], $data['playerName'], (int)$data['cardId']);
+            break;
         case 'start':
-            $res = $service->startGame($gameId);
+            if (!isset($data['gameId'])) { $res=['success'=>false,'message'=>'gameId fehlt']; break; }
+            $res = $service->startGame($data['gameId']);
+            break;
+        case 'setDeck':
+            if (!isset($data['gameId'],$data['playerName'],$data['deckId'])) {
+                $res = ['success'=>false,'message'=>'Fehlende Parameter'];
+                break;
+            }
+            $res = $service->setDeck($data['gameId'], $data['playerName'], (int)$data['deckId']);
             break;
         case 'giveHint':
-            if (!isset($data['playerName'],$data['cardId'],$data['hint'])) {
+            if (!isset($data['gameId'],$data['playerName'],$data['cardId'],$data['hint'])) {
                 $res = ['success'=>false,'message'=>'Fehlende Parameter'];
                 break;
             }
-            $res = $service->giveHint($gameId, $data['playerName'], (int)$data['cardId'], $data['hint']);
+            $res = $service->giveHint($data['gameId'], $data['playerName'], (int)$data['cardId'], $data['hint']);
             break;
         case 'chooseCard':
-            if (!isset($data['playerName'],$data['cardId'])) {
+            if (!isset($data['gameId'],$data['playerName'],$data['cardId'])) {
                 $res = ['success'=>false,'message'=>'Fehlende Parameter'];
                 break;
             }
-            $res = $service->chooseCard($gameId, $data['playerName'], (int)$data['cardId']);
+            $res = $service->chooseCard($data['gameId'], $data['playerName'], (int)$data['cardId']);
             break;
         case 'vote':
-            if (!isset($data['playerName'],$data['cardId'])) {
+            if (!isset($data['gameId'],$data['playerName'],$data['cardId'])) {
                 $res = ['success'=>false,'message'=>'Fehlende Parameter'];
                 break;
             }
-            $res = $service->vote($gameId, $data['playerName'], (int)$data['cardId']);
+            $res = $service->vote($data['gameId'], $data['playerName'], (int)$data['cardId']);
             break;
         case 'nextRound':
-            $res = $service->nextRound($gameId);
+            if (!isset($data['gameId'])) { $res=['success'=>false,'message'=>'gameId fehlt']; break; }
+            $res = $service->nextRound($data['gameId']);
+            break;
+        case 'resetMatch':
+            if (!isset($data['gameId'],$data['playerName'])) { $res=['success'=>false,'message'=>'Parameter fehlen']; break; }
+            $res = $service->resetMatch($data['gameId'], $data['playerName']);
             break;
         default:
             $res = ['success'=>false,'message'=>'Unbekannte Aktion'];

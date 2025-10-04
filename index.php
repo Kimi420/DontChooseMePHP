@@ -85,25 +85,18 @@ if (!$serveStatic && in_array(ltrim($uri,'/'), $staticFiles, true)) {
 }
 
 if ($serveStatic) {
-    // Versuche Datei in allen Build-Kandidaten
-    $file = null;
-    foreach ($buildDirCandidates as $cand) {
-        $candidateFile = safePath($cand, $uri);
-        if ($candidateFile && is_file($candidateFile)) { $file = $candidateFile; break; }
-    }
+    // Nur aus dem gewählten Build-Verzeichnis bedienen, um gemischte Bundles zu vermeiden
+    $file = safePath($buildDir, $uri);
 
-    // Fallback: alte Hash-Datei -> nimm neueste main.*.js aus einem der Kandidaten
+    // Optional: Fallback nur innerhalb des selben Build-Verzeichnisses für main.*.js (z. B. wenn Hash abgelaufen ist)
     if (!$file && preg_match('#^/static/js/main\.[A-Za-z0-9]+\.js$#', $uri)) {
-        foreach ($buildDirCandidates as $cand) {
-            $candidates = glob($cand . '/static/js/main.*.js');
-            if ($candidates && count($candidates) > 0) {
-                usort($candidates, function($a,$b){ return filemtime($b) <=> filemtime($a); });
-                $file = $candidates[0];
-                header('X-Static-Fallback: 1');
-                header('X-Served-File: '.basename($file));
-                header('X-Served-From: '.$cand);
-                break;
-            }
+        $candidates = glob($buildDir . '/static/js/main.*.js');
+        if ($candidates && count($candidates) > 0) {
+            usort($candidates, function($a,$b){ return filemtime($b) <=> filemtime($a); });
+            $file = $candidates[0];
+            header('X-Static-Fallback: 1');
+            header('X-Served-File: '.basename($file));
+            header('X-Served-From: '.$buildDir);
         }
     }
 
@@ -115,13 +108,13 @@ if ($serveStatic) {
             'ico'=>'image/x-icon','mp3'=>'audio/mpeg','wav'=>'audio/wav','mp4'=>'video/mp4'
         ];
         if (isset($mimeMap[$ext])) header('Content-Type: '.$mimeMap[$ext]); else header('Content-Type: application/octet-stream');
-        header('X-Resolved-Path: '.basename($file));
+        header('X-Chosen-Build-Dir: '.$buildDir);
         readfile($file);
         exit;
     }
     http_response_code(404);
     header('Content-Type: text/plain; charset=utf-8');
-    echo 'Datei nicht gefunden (requested: ' . $uri . ')';
+    echo 'Datei nicht gefunden (requested: ' . $uri . ') aus Build ' . $buildDir . "\nBitte Frontend neu bauen und deployen.";
     exit;
 }
 
@@ -144,3 +137,4 @@ http_response_code(500);
 header('Content-Type: text/plain; charset=utf-8');
 print "Build index.html nicht gefunden. Bitte zuerst Frontend bauen (z.B. 'npm run build').";
 //
+

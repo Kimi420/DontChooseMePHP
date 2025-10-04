@@ -34,20 +34,36 @@ async function parseJSONResponse(response) {
   }
 }
 
-export async function createGame(playerName) {
-  const res = await fetch(`${API_URL}/Lobby.php`, {
+export async function fetchDecks() {
+  const res = await fetch(`${API_URL}/Game_api.php?decks=1`);
+  return parseJSONResponse(res);
+}
+
+export async function createGame(playerName, deckId = null) {
+  const payload = { action: 'createGame', playerName };
+  if (deckId !== null) payload.deckId = deckId;
+  const res = await fetch(`${API_URL}/Game_api.php`, {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({ playerName })
+    body: JSON.stringify(payload)
   });
   return parseJSONResponse(res);
 }
 
 export async function joinGame(gameId, playerName) {
-  const res = await fetch(`${API_URL}/Lobby.php`, {
+  const res = await fetch(`${API_URL}/Game_api.php`, {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({ gameId, playerName })
+    body: JSON.stringify({ action: 'join', gameId, playerName })
+  });
+  return parseJSONResponse(res);
+}
+
+export async function rejoinGame(gameId, playerName) {
+  const res = await fetch(`${API_URL}/Game_api.php`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ action: 'rejoin', gameId, playerName })
   });
   return parseJSONResponse(res);
 }
@@ -103,4 +119,59 @@ export async function nextRound(gameId) {
     body: JSON.stringify({ gameId, action: 'nextRound' })
   });
   return parseJSONResponse(res);
+}
+
+export async function setDeck(gameId, playerName, deckId) {
+  const res = await fetch(`${API_URL}/Game_api.php`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ gameId, action: 'setDeck', playerName, deckId })
+  });
+  return parseJSONResponse(res);
+}
+
+export async function resetMatch(gameId, playerName) {
+  const res = await fetch(`${API_URL}/Game_api.php`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ action: 'resetMatch', gameId, playerName })
+  });
+  return parseJSONResponse(res);
+}
+
+// NEU: Karte einmal pro Runde tauschen
+export async function rerollCard(gameId, playerName, cardId) {
+  const res = await fetch(`${API_URL}/Game_api.php`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ action: 'reroll', gameId, playerName, cardId })
+  });
+  return parseJSONResponse(res);
+}
+
+// NEU: Spieler verlassen
+export async function leaveGame(gameId, playerName) {
+  try {
+    const res = await fetch(`${API_URL}/Game_api.php`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ action: 'leave', gameId, playerName })
+    });
+    return parseJSONResponse(res);
+  } catch (e) {
+    return { success: false, message: 'Leave fehlgeschlagen' };
+  }
+}
+
+// NEU: Beacon fürs Tab-Schließen/Reload, feuert ohne Response-Handling
+export function leaveGameBeacon(gameId, playerName) {
+  if (!gameId || !playerName) return false;
+  try {
+    if (navigator && typeof navigator.sendBeacon === 'function') {
+      const payload = JSON.stringify({ action: 'leave', gameId, playerName });
+      const blob = new Blob([payload], { type: 'application/json' });
+      return navigator.sendBeacon(`${API_URL}/Game_api.php`, blob);
+    }
+  } catch (_) { /* ignore */ }
+  return false;
 }
